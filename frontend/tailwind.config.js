@@ -16,7 +16,7 @@ export default {
         background: '#F8FAFC',
         foreground: '#0F172A',
         primary: {
-          DEFAULT: '#1D9BF0',
+          DEFAULT: '#0875C1',
           foreground: '#FFFFFF',
         },
         secondary: {
@@ -33,7 +33,7 @@ export default {
         },
         accent: {
           DEFAULT: '#EEF7FF',
-          foreground: '#1D9BF0',
+          foreground: '#0875C1',
         },
         card: {
           DEFAULT: '#FFFFFF',

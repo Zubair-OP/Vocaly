@@ -22,7 +22,7 @@ export function StatMiniCard({
   return (
     <div
       className={cn(
-        "flex items-center gap-3 rounded-2xl border border-[#E5EAF2] bg-white px-5 py-4 shadow-sm transition-shadow duration-200 hover:shadow-[0_2px_10px_rgba(15,23,42,0.05)]",
+        "flex items-center gap-3 rounded-2xl border border-border bg-white px-5 py-4 shadow-sm transition-shadow duration-200 hover:shadow-[0_2px_10px_rgba(15,23,42,0.05)]",
         className
       )}
     >
@@ -33,8 +33,8 @@ export function StatMiniCard({
         <Icon className="h-4 w-4" style={{ color: iconColor }} />
       </span>
       <div className="min-w-0">
-        <p className="text-xs text-[#94A3B8]">{label}</p>
-        <p className="mt-0.5 truncate text-sm font-bold text-[#0F172A]">{value}</p>
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="mt-0.5 truncate text-sm font-bold text-foreground">{value}</p>
       </div>
     </div>
   )

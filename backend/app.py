@@ -91,7 +91,7 @@ class OutputPayload(BaseModel):
 
 
 def _db_error(exc: db.DatabaseUnavailable) -> HTTPException:
-    return HTTPException(status_code=503, detail=str(exc))
+    return HTTPException(status_code=503, detail={"code": "output_storage_unavailable", "message": "Output storage is unavailable. Please try again shortly."})
 
 
 # ── Routes ─────────────────────────────────────────────────────────────
@@ -149,7 +149,7 @@ async def api_generate(req: GenerateRequest):
     )
 
     if "error" in translation_result:
-        raise HTTPException(status_code=400, detail=translation_result["error"])
+        raise HTTPException(status_code=503, detail={"code": translation_result.get("error_code", "translation_failed"), "message": translation_result["error"]})
 
     translated_text = translation_result["translated_text"]
 
@@ -163,7 +163,7 @@ async def api_generate(req: GenerateRequest):
     )
 
     if "error" in tts_result:
-        raise HTTPException(status_code=400, detail=tts_result["error"])
+        raise HTTPException(status_code=502, detail={"code": "audio_generation_failed", "message": "The speech service could not generate audio. Try again or choose another voice."})
 
     audio_filename = tts_result["audio_filename"]
     audio_url = f"/api/audio/{audio_filename}"

@@ -1,15 +1,70 @@
-import { Bell } from "lucide-react"
-
+import { useState } from "react";
+import { NavLink, useNavigate } from "react-router-dom";
+import { AudioLines, Search, UserRound } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 export function TopHeader() {
+  const [search, setSearch] = useState("");
+  const navigate = useNavigate();
   return (
-    <header className="flex h-14 items-center justify-end gap-3 border-b border-[#E5EAF2] bg-white px-6">
-      <button
-        type="button"
-        aria-label="Notifications"
-        className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#E5EAF2] bg-white text-[#64748B] transition-colors hover:bg-[#F8FAFC]"
+    <header className="border-b border-border bg-card">
+      <div className="flex h-[76px] items-center justify-between gap-4 px-4 sm:px-8">
+        <AudioLines
+          className="size-6 shrink-0 text-primary md:hidden"
+          aria-label="Vocally"
+        />
+        <form
+          role="search"
+          className="relative w-full max-w-sm"
+          onSubmit={(e) => {
+            e.preventDefault();
+            navigate("/outputs?q=" + encodeURIComponent(search.trim()));
+          }}
+        >
+          <Search className="pointer-events-none absolute left-3 top-3 size-4 text-muted-foreground" />
+          <Input
+            aria-label="Search your outputs"
+            placeholder="Search your outputs..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-10 border-transparent bg-background pl-9"
+          />
+        </form>
+        <div className="flex shrink-0 items-center gap-3 border-l border-border pl-4 sm:pl-6">
+          <span className="flex size-9 items-center justify-center rounded-full bg-muted text-muted-foreground">
+            <UserRound className="size-4" />
+          </span>
+          <div className="hidden sm:block">
+            <p className="text-sm font-medium">My workspace</p>
+            <p className="text-xs text-muted-foreground">Personal workspace</p>
+          </div>
+        </div>
+      </div>
+      <nav
+        aria-label="Mobile navigation"
+        className="flex gap-2 px-4 pb-3 md:hidden"
       >
-        <Bell className="h-4 w-4" />
-      </button>
+        {[
+          { to: "/", label: "New dub" },
+          { to: "/outputs", label: "Outputs" },
+        ].map(({ to, label }) => (
+          <NavLink
+            key={to}
+            end
+            to={to}
+            className={({ isActive }) =>
+              cn(
+                "flex min-h-11 flex-1 items-center justify-center rounded-xl text-sm font-medium",
+                isActive
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground",
+              )
+            }
+          >
+            {label}
+          </NavLink>
+        ))}
+      </nav>
     </header>
-  )
+  );
 }

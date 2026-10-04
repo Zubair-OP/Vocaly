@@ -1,58 +1,87 @@
-import { useState, useEffect, useCallback } from "react"
-import { useNavigate } from "react-router-dom"
-import { AppShell } from "@/components/AppShell"
-import { Button } from "@/components/ui/button"
+import { VideoThumbnail } from "@/components/shared/VideoThumbnail";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { AppShell } from "@/components/AppShell";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+  EmptyDescription,
+} from "@/components/ui/empty";
+import { Button } from "@/components/ui/button";
 
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+} from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
-import { PageTitleBlock } from "@/components/shared/PageTitleBlock"
-import { ProjectSummaryPanel } from "@/components/shared/ProjectSummaryPanel"
-import { YouTubeVideoPreviewCard } from "@/components/shared/YouTubeVideoPreviewCard"
-import { StatusBadge } from "@/components/shared/StatusBadge"
+import { PageTitleBlock } from "@/components/shared/PageTitleBlock";
+import { ProjectSummaryPanel } from "@/components/shared/ProjectSummaryPanel";
+import { YouTubeVideoPreviewCard } from "@/components/shared/YouTubeVideoPreviewCard";
+import { StatusBadge } from "@/components/shared/StatusBadge";
+import { StepProgress } from "@/components/shared/StepProgress";
 
-import { fetchTranscript, fetchOutputs, generateAudio, type OutputItem } from "@/lib/api"
-import { LANGUAGES, VOICES, langName, relativeTime, thumbUrl } from "@/lib/format"
+import {
+  fetchTranscript,
+  fetchOutputs,
+  generateAudio,
+  generationErrorMessage,
+  type OutputItem,
+} from "@/lib/api";
+import { LANGUAGES, VOICES, langName, relativeTime } from "@/lib/format";
 import {
   Link2,
   Upload,
   Globe,
   ArrowRight,
   Info,
-  Wand2,
   Youtube,
-  Clock,
-  Eye,
-  MoreHorizontal,
-  CheckCircle2,
-  AlertCircle,
   Loader2,
   FileAudio,
   X,
-} from "lucide-react"
+} from "lucide-react";
 
 // ── constants ──────────────────────────────────────────────────────────
 
-type Step = "idle" | "fetching" | "translating" | "generating" | "completed" | "error"
+type Step =
+  | "idle"
+  | "fetching"
+  | "translating"
+  | "generating"
+  | "completed"
+  | "error";
+
+/** The real pipeline, mirrored by the animated stepper under the CTA. */
+const PIPELINE_STEPS = [
+  { id: "fetch", label: "Fetch Audio" },
+  { id: "transcribe", label: "Transcribe" },
+  { id: "generate", label: "Generate Audio" },
+];
+
+const STAGE_LABELS = ["Fetching audio…", "Transcribing…", "Generating audio…"];
 
 // ── recent outputs (loaded from MongoDB) ───────────────────────────────
 
 interface RecentItem {
-  id: string
-  videoId: string | null
-  title: string
-  source: string
-  from: string
-  to: string
-  duration: string
-  status: OutputItem["status"]
-  updatedAt: string
+  id: string;
+  videoId: string | null;
+  title: string;
+  source: string;
+  from: string;
+  to: string;
+  duration: string;
+  status: OutputItem["status"];
+  updatedAt: string;
 }
 
 function toRecent(output: OutputItem): RecentItem {
@@ -66,489 +95,562 @@ function toRecent(output: OutputItem): RecentItem {
     duration: "—",
     status: output.status,
     updatedAt: relativeTime(output.createdAt),
-  }
+  };
 }
 
 // ── helpers ────────────────────────────────────────────────────────────
 
-function extractVideoId(url: string): string | null {
-  const m = url.match(/[?&]v=([^&]+)/) || url.match(/youtu\.be\/([^?&]+)/)
-  return m ? m[1] : null
+function extractVideoId(value: string): string | null {
+  try {
+    const url = new URL(value);
+    if (!["https:", "http:"].includes(url.protocol)) return null;
+    const host = url.hostname.replace(/^www\./, "").replace(/^m\./, "");
+    const id =
+      host === "youtu.be"
+        ? url.pathname.slice(1)
+        : host === "youtube.com"
+          ? url.searchParams.get("v") ||
+            url.pathname.match(/^\/(?:shorts|embed|live)\/([^/]+)/)?.[1]
+          : null;
+    return id && /^[a-zA-Z0-9_-]{11}$/.test(id) ? id : null;
+  } catch {
+    return null;
+  }
 }
 
 // ── component ──────────────────────────────────────────────────────────
 
 export function QuickDub() {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
 
-  const [url, setUrl] = useState("")
-  const [sourceLanguage, setSourceLanguage] = useState("en")
-  const [targetLanguage, setTargetLanguage] = useState("ur")
-  const [voice, setVoice] = useState("ur-PK-UzmaNeural")
-  const [step, setStep] = useState<Step>("idle")
-  const [errorMessage, setErrorMessage] = useState("")
-  const [videoTitle, setVideoTitle] = useState("")
-  const [recent, setRecent] = useState<RecentItem[]>([])
+  const [url, setUrl] = useState("");
+  const [sourceLanguage, setSourceLanguage] = useState("en");
+  const [targetLanguage, setTargetLanguage] = useState("ur");
+  const [voice, setVoice] = useState("ur-PK-UzmaNeural");
+  const [step, setStep] = useState<Step>("idle");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [videoTitle, setVideoTitle] = useState("");
+  const [recent, setRecent] = useState<RecentItem[]>([]);
+  const [stage, setStage] = useState(0);
+  const [recentLoading, setRecentLoading] = useState(true);
+  const [recentError, setRecentError] = useState(false);
+  const [reload, setReload] = useState(0);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      timers.current.forEach(clearTimeout);
+    };
+  }, []);
 
   useEffect(() => {
-    let active = true
+    let active = true;
+    setRecentLoading(true);
+    setRecentError(false);
     fetchOutputs(3)
       .then((outputs) => {
-        if (active) setRecent(outputs.map(toRecent))
+        if (active) setRecent(outputs.slice(0, 3).map(toRecent));
       })
       .catch(() => {
-        if (active) setRecent([])
+        if (active) setRecentError(true);
       })
+      .finally(() => {
+        if (active) setRecentLoading(false);
+      });
     return () => {
-      active = false
-    }
-  }, [])
+      active = false;
+    };
+  }, [reload]);
 
-  const videoId = extractVideoId(url)
+  const videoId = extractVideoId(url);
   const thumbnailUrl = videoId
     ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`
-    : null
+    : null;
 
   const handleTargetLanguageChange = (lang: string) => {
-    setTargetLanguage(lang)
-    const voices = VOICES[lang]
-    if (voices?.length) setVoice(voices[0].id)
-  }
+    setTargetLanguage(lang);
+    const voices = VOICES[lang];
+    if (voices?.length) setVoice(voices[0].id);
+  };
 
   const handlePaste = useCallback(async () => {
     try {
-      const text = await navigator.clipboard.readText()
-      setUrl(text)
+      const text = await navigator.clipboard.readText();
+      setUrl(text);
+      setVideoTitle("");
     } catch {
-      // silent
+      document.getElementById("youtube-url")?.focus();
     }
-  }, [])
+  }, []);
 
   const handleGenerate = async () => {
-    if (!url.trim()) {
-      setErrorMessage("Please enter a valid YouTube video URL.")
-      setStep("error")
-      return
+    if (!extractVideoId(url.trim())) {
+      setErrorMessage("Please enter a valid YouTube video URL.");
+      setStep("error");
+      return;
     }
 
-    setStep("fetching")
-    setErrorMessage("")
+    setStep("fetching");
+    setStage(0);
+    setErrorMessage("");
 
+    let promote: ReturnType<typeof setTimeout> | undefined;
+    let phase: 'transcript' | 'generation' = 'transcript';
     try {
-      const transcript = await fetchTranscript(url)
-      setVideoTitle(transcript.title)
+      const transcript = await fetchTranscript(url);
+      if (!mounted.current) return;
+      setVideoTitle(transcript.title);
 
-      if (transcript.source_language) setSourceLanguage(transcript.source_language)
+      if (transcript.source_language)
+        setSourceLanguage(transcript.source_language);
 
-      setStep("translating")
-      setStep("generating")
+      setStep("translating");
+      phase = 'generation';
+      setStage(1);
 
+      // The backend transcribes, translates, and synthesises audio in one call,
+      // so the stepper advances to the last stage while that call is running.
+      promote = setTimeout(() => {
+        setStep("generating");
+        setStage(2);
+      }, 1500);
+
+      timers.current.push(promote);
       // The backend translates, synthesises audio, and saves the output to MongoDB.
       await generateAudio({
         video_id: transcript.video_id,
         title: transcript.title,
-        source_language: sourceLanguage,
+        source_language: transcript.source_language || sourceLanguage,
         target_language: targetLanguage,
         voice,
         transcript: transcript.segments.map((s) => s.text).join(" "),
-      })
+      });
 
-      setStep("completed")
-      setTimeout(() => navigate("/outputs"), 900)
-    } catch (err: any) {
-      setStep("error")
-      setErrorMessage(err.message || "An unexpected error occurred.")
+      clearTimeout(promote);
+      if (!mounted.current) return;
+      setStep("completed");
+      timers.current.push(setTimeout(() => navigate("/outputs"), 900));
+    } catch (error) {
+      if (!mounted.current) return;
+      setStep("error");
+      setErrorMessage(generationErrorMessage(error, phase));
+    } finally {
+      if (promote) clearTimeout(promote);
     }
-  }
+  };
 
-  const isProcessing = step === "fetching" || step === "translating" || step === "generating"
-  const availableVoices = VOICES[targetLanguage] || []
+  const isProcessing =
+    step === "fetching" || step === "translating" || step === "generating";
+  const availableVoices = VOICES[targetLanguage] || [];
 
-  const sourceLang = LANGUAGES.find((l) => l.code === sourceLanguage)
-  const targetLang = LANGUAGES.find((l) => l.code === targetLanguage)
+  const sourceLang = LANGUAGES.find((l) => l.code === sourceLanguage);
+  const targetLang = LANGUAGES.find((l) => l.code === targetLanguage);
 
   return (
     <AppShell>
-      <div className="grid grid-cols-[minmax(0,1fr)_340px] h-full">
-        {/* ── Left main content ─────────────────────────── */}
-        <div className="overflow-y-auto px-8 py-8 space-y-8">
-          {/* Page title */}
+      <div className="workspace-grid">
+        <div className="workspace-main flex flex-col gap-7">
           <PageTitleBlock
             title="Quick Dub"
-            subtitle="Paste a YouTube link or upload a file, then generate translated audio."
-            className="animate-fade-in-up"
+            subtitle="Turn a YouTube video into audio in another language."
           />
-
-          {/* Input card */}
-          <div
-            className="animate-fade-in-up rounded-2xl border border-[#E5EAF2] bg-white shadow-sm overflow-hidden"
-            style={{ animationDelay: "80ms" }}
-          >
-            {/* Tabs */}
-            <div className="px-6 pt-5 pb-0">
-              <Tabs defaultValue="youtube" className="w-full">
-                <TabsList className="w-fit">
-                  <TabsTrigger value="youtube" className="flex items-center gap-2">
-                    <Youtube className="h-3.5 w-3.5" />
-                    YouTube Link
+          <section className="overflow-hidden rounded-2xl border border-border bg-card">
+            <Tabs defaultValue="youtube" className="p-5 sm:p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <TabsList aria-label="Video source">
+                  <TabsTrigger value="youtube">
+                    <Youtube className="size-4" />
+                    YouTube link
                   </TabsTrigger>
-                  <TabsTrigger value="upload" className="flex items-center gap-2">
-                    <Upload className="h-3.5 w-3.5" />
-                    Upload File
+                  <TabsTrigger value="upload" disabled>
+                    <Upload className="size-4" />
+                    Upload file
                   </TabsTrigger>
                 </TabsList>
-
-                <TabsContent value="youtube" className="pt-6 pb-6">
-                  <div className="space-y-5">
-                    {/* URL input */}
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-[#0F172A]">YouTube URL</label>
+                <span className="text-xs text-muted-foreground">
+                  File uploads coming soon
+                </span>
+              </div>
+              <TabsContent value="youtube" className="pt-6">
+                <form
+                  noValidate
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    if (!isProcessing) void handleGenerate();
+                  }}
+                  aria-busy={isProcessing}
+                >
+                  <FieldGroup className="gap-5">
+                    <Field
+                      className="gap-2"
+                      data-invalid={step === "error"}
+                      data-disabled={isProcessing}
+                    >
+                      <FieldLabel htmlFor="youtube-url">YouTube URL</FieldLabel>
                       <div className="flex gap-2">
-                        <div className="relative flex-1">
-                          <Link2 className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#94A3B8]" />
-                          <input
+                        <div className="relative min-w-0 flex-1">
+                          <Link2 className="pointer-events-none absolute left-3 top-3.5 size-4 text-muted-foreground" />
+                          <Input
                             id="youtube-url"
                             type="url"
                             placeholder="https://www.youtube.com/watch?v=..."
                             value={url}
-                            onChange={(e) => setUrl(e.target.value)}
                             disabled={isProcessing}
-                            className="w-full h-11 rounded-xl border border-[#E5EAF2] bg-[#F8FAFC] pl-10 pr-10 text-sm text-[#0F172A] placeholder:text-[#94A3B8] outline-none focus:border-[#1D9BF0] focus:ring-2 focus:ring-[#1D9BF0]/10 disabled:opacity-50 transition-all"
+                            aria-invalid={step === "error"}
+                            aria-describedby={
+                              step === "error" ? "dub-error" : "url-help"
+                            }
+                            onChange={(e) => {
+                              setUrl(e.target.value);
+                              setVideoTitle("");
+                              if (step === "error") {
+                                setStep("idle");
+                                setErrorMessage("");
+                              }
+                            }}
+                            className="h-11 pl-10 pr-10"
                           />
                           {url && (
-                            <button
-                              onClick={() => setUrl("")}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#64748B]"
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              aria-label="Clear YouTube URL"
+                              disabled={isProcessing}
+                              onClick={() => {
+                                setUrl("");
+                                setVideoTitle("");
+                              }}
+                              className="absolute right-0.5 top-0.5"
                             >
-                              <X className="h-4 w-4" />
-                            </button>
+                              <X />
+                            </Button>
                           )}
                         </div>
                         <Button
+                          type="button"
                           variant="outline"
                           onClick={handlePaste}
                           disabled={isProcessing}
-                          className="h-11 rounded-xl border-[#E5EAF2] text-[#64748B] hover:bg-[#F8FAFC]"
+                          className="h-11"
                         >
                           Paste
                         </Button>
                       </div>
-                    </div>
-
-                    {/* Language row */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                        <label className="text-sm font-medium text-[#0F172A]">
-                          From (Source)
-                        </label>
+                    </Field>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <Field className="gap-2">
+                        <FieldLabel htmlFor="source-language">
+                          From (source)
+                        </FieldLabel>
                         <Select
                           value={sourceLanguage}
                           onValueChange={setSourceLanguage}
                           disabled={isProcessing}
                         >
-                          <SelectTrigger
-                            id="source-language"
-                            className="h-11 rounded-xl border-[#E5EAF2] bg-[#F8FAFC]"
-                          >
+                          <SelectTrigger id="source-language" className="h-11">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {LANGUAGES.map((lang) => (
-                              <SelectItem key={lang.code} value={lang.code}>
-                                {lang.flag} {lang.name}
-                              </SelectItem>
-                            ))}
+                            <SelectGroup>
+                              {LANGUAGES.map((lang) => (
+                                <SelectItem key={lang.code} value={lang.code}>
+                                  {lang.name}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
                           </SelectContent>
                         </Select>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <label className="text-sm font-medium text-[#0F172A]">
-                          To (Target)
-                        </label>
+                      </Field>
+                      <Field className="gap-2">
+                        <FieldLabel htmlFor="target-language">
+                          To (target)
+                        </FieldLabel>
                         <Select
                           value={targetLanguage}
                           onValueChange={handleTargetLanguageChange}
                           disabled={isProcessing}
                         >
-                          <SelectTrigger
-                            id="target-language"
-                            className="h-11 rounded-xl border-[#E5EAF2] bg-[#F8FAFC]"
-                          >
+                          <SelectTrigger id="target-language" className="h-11">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {LANGUAGES.map((lang) => (
-                              <SelectItem key={lang.code} value={lang.code}>
-                                {lang.flag} {lang.name}
-                              </SelectItem>
-                            ))}
+                            <SelectGroup>
+                              {LANGUAGES.map((lang) => (
+                                <SelectItem key={lang.code} value={lang.code}>
+                                  {lang.name}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
                           </SelectContent>
                         </Select>
-                      </div>
+                      </Field>
                     </div>
-
-                    {/* Voice selector */}
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-[#0F172A]">Voice</label>
-                      <Select value={voice} onValueChange={setVoice} disabled={isProcessing}>
-                        <SelectTrigger
-                          id="voice-select"
-                          className="h-11 rounded-xl border-[#E5EAF2] bg-[#F8FAFC]"
-                        >
+                    <Field className="gap-2">
+                      <FieldLabel htmlFor="voice-select">Voice</FieldLabel>
+                      <Select
+                        key={targetLanguage}
+                        value={voice}
+                        onValueChange={(value) => {
+                          if (value) setVoice(value);
+                        }}
+                        disabled={isProcessing}
+                      >
+                        <SelectTrigger id="voice-select" className="h-11">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {availableVoices.map((v) => (
-                            <SelectItem key={v.id} value={v.id}>
-                              {v.name}
-                            </SelectItem>
-                          ))}
+                          <SelectGroup>
+                            {availableVoices.map((v) => (
+                              <SelectItem key={v.id} value={v.id}>
+                                {v.name}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
                         </SelectContent>
                       </Select>
-                    </div>
-
-                    {/* CTA */}
-                    <div className="space-y-2 pt-1">
+                    </Field>
+                    <div className="flex flex-col gap-3 pt-1">
                       <Button
+                        type="submit"
                         id="generate-audio"
-                        onClick={handleGenerate}
-                        disabled={isProcessing}
-                        className="w-full h-12 rounded-xl bg-[#1D9BF0] hover:bg-[#178BFF] text-white font-semibold text-[15px] shadow-sm transition-all"
+                        disabled={isProcessing || step === "completed"}
+                        className="h-auto min-h-12 w-full whitespace-normal py-3"
                       >
                         {isProcessing ? (
                           <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            {step === "fetching"
-                              ? "Fetching transcript…"
-                              : step === "translating"
-                              ? "Translating…"
-                              : "Generating audio…"}
+                            <Loader2
+                              data-icon="inline-start"
+                              className="animate-spin"
+                            />
+                            {
+                              STAGE_LABELS[
+                                Math.min(stage, STAGE_LABELS.length - 1)
+                              ]
+                            }
                           </>
                         ) : (
                           <>
-                            <Wand2 className="mr-2 h-4 w-4" />
                             Fetch Transcript &amp; Generate Audio
+                            <ArrowRight data-icon="inline-end" />
                           </>
                         )}
                       </Button>
-
-                      {/* Status messages */}
-                      {step === "error" && (
-                        <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-                          <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                          {errorMessage}
+                      <p
+                        id="url-help"
+                        className="flex items-start gap-2 text-xs leading-relaxed text-muted-foreground"
+                      >
+                        <Info className="mt-0.5 size-3.5 shrink-0" />
+                        Use a public video with captions. Short videos work
+                        best.
+                      </p>
+                      {(isProcessing || step === "completed") && (
+                        <div
+                          aria-live="polite"
+                          className="rounded-xl bg-background p-4"
+                        >
+                          <StepProgress
+                            steps={PIPELINE_STEPS}
+                            activeIndex={stage}
+                            complete={step === "completed"}
+                          />
                         </div>
+                      )}
+                      {step === "error" && (
+                        <Alert id="dub-error" variant="destructive">
+                          <AlertDescription>{errorMessage}</AlertDescription>
+                        </Alert>
                       )}
                       {step === "completed" && (
-                        <div className="flex items-center gap-2 rounded-xl border border-[#16A34A]/20 bg-[#EAFBF0] px-4 py-3 text-sm text-[#16A34A]">
-                          <CheckCircle2 className="h-4 w-4" />
-                          Done! Redirecting to outputs…
-                        </div>
+                        <Alert variant="success">
+                          <AlertDescription>
+                            Your audio is ready. Opening outputs...
+                          </AlertDescription>
+                        </Alert>
                       )}
-
-                      <p className="flex items-center gap-1.5 text-xs text-[#94A3B8]">
-                        <Info className="h-3 w-3" />
-                        Best for short videos in hackathon mode.
-                      </p>
                     </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="upload" className="py-8">
-                  <div className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-[#E5EAF2] py-12 text-center">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#EEF7FF]">
-                      <Upload className="h-5 w-5 text-[#1D9BF0]" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-[#0F172A]">Upload a file</p>
-                      <p className="text-xs text-[#94A3B8] mt-0.5">MP3, MP4, WAV up to 100 MB</p>
-                    </div>
-                    <Button variant="outline" className="rounded-xl border-[#E5EAF2]">
-                      Choose File
-                    </Button>
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </div>
-          </div>
-
-          {/* How it works */}
-          <div
-            className="animate-fade-in-up rounded-2xl border border-[#E5EAF2] bg-white shadow-sm p-6"
-            style={{ animationDelay: "140ms" }}
-          >
-            <h2 className="text-[16px] font-semibold text-[#0F172A] mb-5">How It Works</h2>
-            <div className="grid grid-cols-3 gap-4">
+                  </FieldGroup>
+                </form>
+              </TabsContent>
+            </Tabs>
+          </section>
+          <section aria-labelledby="how-it-works">
+            <h2 id="how-it-works" className="mb-4 text-base font-semibold">
+              From video to voice
+            </h2>
+            <ol className="grid grid-cols-1 gap-5 sm:grid-cols-3">
               {[
                 {
-                  num: "01",
-                  title: "Fetch Transcript",
-                  desc: "We pull the YouTube transcript automatically.",
-                  color: "#EEF7FF",
-                  textColor: "#1D9BF0",
+                  title: "Fetch transcript",
+                  desc: "Find the captions from your YouTube video.",
                 },
                 {
-                  num: "02",
-                  title: "Translate Text",
-                  desc: "The transcript is translated into your chosen language.",
-                  color: "#EEF5FF",
-                  textColor: "#3B82F6",
+                  title: "Translate text",
+                  desc: "Bring the original meaning into your chosen language.",
                 },
                 {
-                  num: "03",
-                  title: "Generate Audio",
-                  desc: "Text-to-speech creates a natural-sounding dubbed audio.",
-                  color: "#EAFBF0",
-                  textColor: "#16A34A",
+                  title: "Generate audio",
+                  desc: "Create a voice track, ready to listen and download.",
                 },
-              ].map((item, i) => (
-                <div key={i} className="flex flex-col gap-3">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="flex h-9 w-9 items-center justify-center rounded-xl text-xs font-bold"
-                      style={{ backgroundColor: item.color, color: item.textColor }}
-                    >
-                      {item.num}
-                    </div>
-                    {i < 2 && (
-                      <ArrowRight className="h-4 w-4 text-[#CBD5E1] flex-shrink-0" />
-                    )}
-                  </div>
+              ].map((item, index) => (
+                <li key={item.title} className="flex gap-3">
+                  <span className="pt-0.5 text-xs font-semibold tabular-nums text-accent-foreground">
+                    0{index + 1}
+                  </span>
                   <div>
-                    <p className="text-sm font-semibold text-[#0F172A]">{item.title}</p>
-                    <p className="text-xs text-[#64748B] mt-0.5 leading-relaxed">{item.desc}</p>
+                    <h3 className="text-sm font-medium">{item.title}</h3>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      {item.desc}
+                    </p>
                   </div>
-                </div>
+                </li>
               ))}
-            </div>
-          </div>
-
-          {/* Recent outputs */}
-          <div
-            className="animate-fade-in-up rounded-2xl border border-[#E5EAF2] bg-white shadow-sm overflow-hidden"
-            style={{ animationDelay: "200ms" }}
+            </ol>
+          </section>
+          <section
+            className="overflow-hidden rounded-2xl border border-border bg-card"
+            aria-labelledby="recent-outputs"
           >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5EAF2]">
-              <h2 className="text-[15px] font-semibold text-[#0F172A]">Recent Outputs</h2>
-              <button
+            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+              <h2 id="recent-outputs" className="text-base font-semibold">
+                Recent outputs
+              </h2>
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => navigate("/outputs")}
-                className="text-xs text-[#1D9BF0] hover:underline font-medium"
               >
                 View all
-              </button>
+                <ArrowRight />
+              </Button>
             </div>
-            <div className="divide-y divide-[#EDF2F7]">
-              {recent.length === 0 ? (
-                <div className="px-6 py-8 text-center text-sm text-[#94A3B8]">
-                  No outputs yet — generate your first dub above.
-                </div>
-              ) : (
-                recent.map((item) => (
-                  <div
+            {recentLoading ? (
+              <div
+                aria-label="Loading recent outputs"
+                className="flex flex-col gap-4 p-5"
+              >
+                {[0, 1, 2].map((i) => (
+                  <Skeleton key={i} className="h-12 w-full" />
+                ))}
+              </div>
+            ) : recentError ? (
+              <div className="flex flex-col items-center gap-3 p-6">
+                <p className="text-sm text-muted-foreground">
+                  Recent outputs could not be loaded.
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => setReload((n) => n + 1)}
+                >
+                  Try again
+                </Button>
+              </div>
+            ) : recent.length === 0 ? (
+              <Empty>
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <FileAudio />
+                  </EmptyMedia>
+                  <EmptyTitle>Your first dub starts here</EmptyTitle>
+                  <EmptyDescription>
+                    Add a video above. Your translated audio will be saved here.
+                  </EmptyDescription>
+                </EmptyHeader>
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    document.getElementById("youtube-url")?.focus()
+                  }
+                >
+                  Add a video
+                </Button>
+              </Empty>
+            ) : (
+              <div className="divide-y divide-border">
+                {recent.map((item) => (
+                  <button
                     key={item.id}
-                    onClick={() => navigate("/outputs")}
-                    className="flex items-center gap-4 px-6 py-3.5 hover:bg-[#F8FAFC] transition-colors cursor-pointer"
+                    type="button"
+                    onClick={() => navigate("/outputs?id=" + item.id)}
+                    className="flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-background"
                   >
-                    {/* Thumbnail */}
-                    <div className="h-10 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-[#EEF7FF]">
-                      {thumbUrl(item.videoId) ? (
-                        <img
-                          src={thumbUrl(item.videoId)}
-                          alt=""
-                          className="h-full w-full object-cover"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center">
-                          <Youtube className="h-4 w-4 text-[#1D9BF0]" />
-                        </div>
-                      )}
+                    <div className="flex h-10 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-accent">
+                      <VideoThumbnail videoId={item.videoId} />
                     </div>
-                    {/* Info */}
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-[#0F172A] truncate">{item.title}</p>
-                      <p className="text-xs text-[#94A3B8] mt-0.5">
-                        {item.source} · {item.from} → {item.to}
+                      <p className="truncate text-sm font-medium">
+                        {item.title}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {item.from} &rarr; {item.to}
                       </p>
                     </div>
-                    <div className="flex items-center gap-3 flex-shrink-0">
-                      <span className="text-xs text-[#94A3B8] flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {item.duration}
-                      </span>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
                       <StatusBadge status={item.status} />
-                      <span className="text-xs text-[#94A3B8]">{item.updatedAt}</span>
-                      <button
-                        type="button"
-                        aria-label="More actions"
-                        className="text-[#94A3B8] hover:text-[#64748B]"
-                      >
-                        <MoreHorizontal className="h-4 w-4" />
-                      </button>
+                      <span className="hidden text-xs text-muted-foreground sm:block">
+                        {item.updatedAt}
+                      </span>
                     </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
         </div>
-
-        {/* ── Right panel ───────────────────────────────── */}
-        <div className="overflow-y-auto border-l border-[#E5EAF2] bg-white px-6 py-8 space-y-5">
-          {/* Current Setup card */}
+        <aside
+          className="workspace-detail flex flex-col gap-6"
+          aria-label="Current dub setup"
+        >
+          <div>
+            <h2 className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              Your dub
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              A quick look at your setup.
+            </p>
+          </div>
           <ProjectSummaryPanel
-            title="Current Setup"
-            className="animate-fade-in-up bg-[#F8FAFC]"
+            title="Current setup"
             items={[
               { icon: Youtube, label: "Source", value: "YouTube" },
               {
                 icon: Globe,
                 label: "From",
-                value: sourceLang ? `${sourceLang.flag} ${sourceLang.name}` : "English",
+                value: sourceLang?.name || langName(sourceLanguage),
               },
               {
                 icon: Globe,
                 label: "To",
-                value: targetLang ? `${targetLang.flag} ${targetLang.name}` : "Urdu",
+                value: targetLang?.name || langName(targetLanguage),
               },
-              { icon: FileAudio, label: "Output", value: "Audio only" },
+              { icon: FileAudio, label: "Output", value: "MP3 audio" },
             ]}
           />
-
-          {/* Video Preview */}
           <YouTubeVideoPreviewCard
-            className="animate-fade-in-up"
             videoId={videoId}
-            title={videoTitle || (videoId ? "Loading title…" : "No video selected")}
-            thumbnailBadge={thumbnailUrl ? "Preview" : undefined}
-            meta={
-              videoId ? (
-                <>
-                  <span className="flex items-center gap-1">
-                    <Eye className="h-3 w-3" />
-                    —
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    —
-                  </span>
-                </>
-              ) : undefined
+            title={
+              videoTitle || (videoId ? "Video preview" : "No video selected")
             }
+            subtitle={
+              videoId
+                ? "The title will appear when the transcript is fetched."
+                : "Your source video will appear here."
+            }
+            thumbnailBadge={thumbnailUrl ? "Preview" : undefined}
           />
-
-          {/* Tips */}
-          <div className="rounded-xl border border-[#E5EAF2] bg-[#EEF7FF] p-4">
-            <p className="text-xs font-semibold text-[#1D9BF0] mb-1.5">💡 Tips</p>
-            <ul className="space-y-1.5 text-xs text-[#64748B]">
-              <li>• Use videos shorter than 10 minutes for best results</li>
-              <li>• Make sure the video has subtitles/captions enabled</li>
-              <li>• Clear speech produces better TTS output</li>
-            </ul>
-          </div>
-        </div>
+          <section className="border-t border-border pt-5">
+            <h3 className="text-sm font-medium">
+              A better dub starts with clear speech
+            </h3>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              Choose a short video with accurate captions. We detect the source
+              language when the transcript is fetched.
+            </p>
+          </section>
+        </aside>
       </div>
     </AppShell>
-  )
+  );
 }

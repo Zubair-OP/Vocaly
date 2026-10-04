@@ -134,3 +134,20 @@ audio::-webkit-media-controls-panel {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* Shared workspace geometry: details move below the task at tablet widths. */
+@layer components {
+  .workspace-grid { @apply grid min-w-0 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px]; }
+  .workspace-main { @apply min-w-0 p-4 sm:p-6 lg:p-8; }
+  .workspace-detail { @apply min-w-0 border-t border-border bg-card p-5 sm:p-6 xl:border-l xl:border-t-0; }
+}
+:focus-visible { outline: 2px solid #178bff; outline-offset: 3px; }
+button, a, input, select { -webkit-tap-highlight-color: transparent; }
+button:disabled { cursor: not-allowed; }
+h1, h2, h3 { text-wrap: balance; }
+p { text-wrap: pretty; }
+body { font-variant-numeric: tabular-nums; }
+audio { height: 42px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+}

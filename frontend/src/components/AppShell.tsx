@@ -1,21 +1,31 @@
-import { type ReactNode } from "react"
-import { AppSidebar } from "./AppSidebar"
-import { TopHeader } from "./TopHeader"
+import { type ReactNode } from "react";
+import { AppSidebar } from "./AppSidebar";
+import { TopHeader } from "./TopHeader";
 
 interface AppShellProps {
-  children: ReactNode
+  children: ReactNode;
 }
 
 export function AppShell({ children }: AppShellProps) {
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-[#F8FAFC]">
+    <div className="flex min-h-dvh w-full bg-background">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:bg-card focus:p-3"
+      >
+        Skip to content
+      </a>
       <AppSidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col">
         <TopHeader />
-        <div className="flex-1 overflow-y-auto">
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="mx-auto w-full max-w-[1600px] flex-1"
+        >
           {children}
-        </div>
+        </main>
       </div>
     </div>
-  )
+  );
 }

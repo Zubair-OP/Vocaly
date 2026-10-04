@@ -18,25 +18,25 @@ export function TranscriptSnippetCard({
 }: TranscriptSnippetCardProps) {
   return (
     <section className={className}>
-      <h4 className="mb-3 text-[15px] font-semibold tracking-tight text-[#0F172A]">
+      <h4 className="mb-3 text-[15px] font-semibold tracking-tight text-foreground">
         Transcript Snippet
       </h4>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-xl border border-[#E5EAF2] bg-[#F8FAFC] p-3">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[#94A3B8]">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1">
+        <div className="rounded-xl border border-border bg-background p-3">
+          <p className="mb-2 text-xs font-medium text-muted-foreground">
             {originalLabel}
           </p>
-          <p className="line-clamp-5 text-xs leading-relaxed text-[#64748B]">
+          <p className="line-clamp-5 text-sm leading-relaxed text-muted-foreground">
             {original || "—"}
           </p>
         </div>
 
-        <div className="rounded-xl border border-[#D8EBFF] bg-[#EEF7FF] p-3">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[#1D9BF0]/70">
+        <div className="rounded-xl border border-[#D8EBFF] bg-accent p-3">
+          <p className="mb-2 text-xs font-medium text-accent-foreground/70">
             {translatedLabel}
           </p>
-          <p className="line-clamp-5 text-xs leading-relaxed text-[#64748B]" dir="auto">
+          <p className="line-clamp-5 text-sm leading-relaxed text-muted-foreground" dir="auto">
             {translated || "—"}
           </p>
         </div>

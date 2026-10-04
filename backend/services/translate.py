@@ -28,7 +28,7 @@ def _get_gemini_model():
         return None
 
     genai.configure(api_key=api_key)
-    return genai.GenerativeModel("gemini-3.8-flash")
+    return genai.GenerativeModel(os.getenv("GEMINI_MODEL", "gemini-2.5-flash"))
 
 
 
@@ -95,19 +95,15 @@ async def translate_text(
 
     model = _get_gemini_model()
 
-    if model is None:
-        # Fallback: return a placeholder when no API key is configured
-        return {
-            "translated_text": f"[Translation placeholder — configure GEMINI_API_KEY in .env]\n\nOriginal text:\n{text}"
-        }
-
     chunks = _chunk_text(text)
     translated_chunks = []
 
     try:
+        if model is None:
+            raise ValueError("Translation provider is not configured")
         for chunk in chunks:
             prompt = _build_translation_prompt(chunk, source_language, target_language)
-            response = model.generate_content(prompt)
+            response = await model.generate_content_async(prompt, request_options={"timeout": 45})
 
             if response and response.text:
                 translated_chunks.append(response.text.strip())
@@ -119,11 +115,11 @@ async def translate_text(
 
     except Exception as e:
         error_str = str(e)
-        print(f"[Translation] Gemini failed: {error_str}")
+        print(f"[Translation] Gemini failed: {type(e).__name__}")
 
         # Try Groq fallback if GROQ_API_KEY is available in .env
         groq_key = os.getenv("GROQ_API_KEY", "")
-        if groq_key and groq_key != "your_groq_api_key_here":
+        if groq_key and groq_key not in {"your_groq_api_key_here", "optional_fallback_key"}:
             print("[Translation] Attempting fallback using Groq API...")
             try:
                 groq_translated = await _translate_with_groq(text, source_language, target_language, groq_key)
@@ -131,12 +127,14 @@ async def translate_text(
                     print("[Translation] Groq fallback successful!")
                     return {"translated_text": groq_translated}
             except Exception as ge:
-                print(f"[Translation] Groq fallback also failed: {ge}")
+                print(f"[Translation] Groq fallback also failed: {type(ge).__name__}")
 
+        if model is None:
+            return {"error": "Translation is not configured. Add a working translation API key to the backend.", "error_code": "translation_not_configured"}
         err_lower = error_str.lower()
         if "quota" in err_lower or "rate" in err_lower or "limit" in err_lower or "429" in err_lower:
-            return {"error": "Translation limit reached (Gemini 429 Quota Exceeded). Please wait a moment or check your API key."}
-        return {"error": f"Translation failed: {error_str}"}
+            return {"error": "The translation service has reached its usage limit. Try again later or check the provider quota.", "error_code": "translation_rate_limited"}
+        return {"error": "Translation could not be completed. Please try again.", "error_code": "translation_failed"}
 
 
 async def _translate_with_groq(text: str, source_lang: str, target_lang: str, api_key: str) -> str:
@@ -158,7 +156,7 @@ async def _translate_with_groq(text: str, source_lang: str, target_lang: str, ap
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         # Determine available Groq model
-        chosen_model = "llama-3.1-8b-instant"
+        chosen_model = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
         try:
             m_res = await client.get(
                 "https://api.groq.com/openai/v1/models",
@@ -167,13 +165,11 @@ async def _translate_with_groq(text: str, source_lang: str, target_lang: str, ap
             if m_res.status_code == 200:
                 available_ids = [m.get("id") for m in m_res.json().get("data", [])]
                 for candidate in [
+                    chosen_model,
+                    "openai/gpt-oss-120b",
+                    "openai/gpt-oss-20b",
                     "llama-3.3-70b-versatile",
-                    "llama-3.1-70b-versatile",
                     "llama-3.1-8b-instant",
-                    "llama3-70b-8192",
-                    "llama3-8b-8192",
-                    "gemma2-9b-it",
-                    "mixtral-8x7b-32768",
                 ]:
                     if candidate in available_ids:
                         chosen_model = candidate
@@ -201,12 +197,13 @@ async def _translate_with_groq(text: str, source_lang: str, target_lang: str, ap
                 json=payload,
             )
             if res.status_code != 200:
-                print(f"[Translation] Groq error response: {res.status_code} - {res.text}")
+                print(f"[Translation] Groq error response: {res.status_code}")
             res.raise_for_status()
             data = res.json()
             content = data["choices"][0]["message"]["content"].strip()
+            if not content:
+                raise ValueError("Groq returned an empty translation")
             translated_chunks.append(content)
 
     return " ".join(translated_chunks)
-
 

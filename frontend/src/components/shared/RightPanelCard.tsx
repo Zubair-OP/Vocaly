@@ -1,16 +1,17 @@
-import { type ReactNode } from "react"
-import { cn } from "@/lib/utils"
+import { type ReactNode } from "react";
+import { cn } from "@/lib/utils";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 
 interface RightPanelCardProps {
-  title?: string
-  action?: ReactNode
-  children: ReactNode
+  title?: string;
+  action?: ReactNode;
+  children: ReactNode;
   /** Remove the default body padding (for flush media blocks). */
-  flush?: boolean
+  flush?: boolean;
   /** Soft `#F8FAFC` surface instead of white. */
-  muted?: boolean
-  className?: string
-  bodyClassName?: string
+  muted?: boolean;
+  className?: string;
+  bodyClassName?: string;
 }
 
 /**
@@ -27,26 +28,30 @@ export function RightPanelCard({
   bodyClassName,
 }: RightPanelCardProps) {
   return (
-    <section
+    <Card
       className={cn(
-        "overflow-hidden rounded-2xl border border-[#E5EAF2] shadow-sm transition-shadow duration-200 hover:shadow-[0_2px_10px_rgba(15,23,42,0.05)]",
-        muted ? "bg-[#F8FAFC]" : "bg-white",
-        className
+        "overflow-hidden rounded-2xl border border-border ",
+        muted ? "bg-background" : "bg-white",
+        className,
       )}
     >
       {(title || action) && (
-        <header
+        <CardHeader
           className={cn(
-            "flex items-center justify-between gap-3",
-            flush ? "px-5 pt-4" : "border-b border-[#EDF2F7] px-5 py-4"
+            "flex flex-row items-center justify-between gap-3 space-y-0",
+            flush ? "px-5 pt-4" : "border-b border-[#EDF2F7] px-5 py-4",
           )}
         >
-          <h3 className="text-[15px] font-semibold tracking-tight text-[#0F172A]">{title}</h3>
+          <CardTitle className="text-[15px] font-semibold tracking-tight text-foreground">
+            {title}
+          </CardTitle>
           {action}
-        </header>
+        </CardHeader>
       )}
 
-      <div className={cn(flush ? "" : "p-5", bodyClassName)}>{children}</div>
-    </section>
-  )
+      <CardContent className={cn(flush ? "p-0" : "p-5", bodyClassName)}>
+        {children}
+      </CardContent>
+    </Card>
+  );
 }

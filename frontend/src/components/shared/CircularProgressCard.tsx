@@ -29,7 +29,7 @@ export function CircularProgressCard({
   return (
     <div
       className={cn(
-        "flex items-center justify-center rounded-2xl border border-[#E5EAF2] bg-white p-6 shadow-sm",
+        "flex items-center justify-center rounded-2xl border border-border bg-white p-6 shadow-sm",
         className
       )}
     >
@@ -65,10 +65,10 @@ export function CircularProgressCard({
         </svg>
 
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-3xl font-bold tracking-tight text-[#0F172A]">
+          <span className="text-3xl font-bold tracking-tight text-foreground">
             {Math.round(clamped)}%
           </span>
-          <span className="mt-0.5 text-xs text-[#94A3B8]">{label}</span>
+          <span className="mt-0.5 text-xs text-muted-foreground">{label}</span>
           {sub && <span className="mt-1 text-[10px] text-[#CBD5E1]">{sub}</span>}
         </div>
       </div>

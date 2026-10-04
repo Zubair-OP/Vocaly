@@ -1,67 +1,53 @@
-import { Link, useLocation } from "react-router-dom"
-import {
-  LayoutDashboard,
-  Plus,
-  ListMusic,
-  Settings,
-  Mic2,
-} from "lucide-react"
-import { cn } from "@/lib/utils"
-
-const NAV_ITEMS = [
-  { label: "Dashboard", icon: LayoutDashboard, to: "/dashboard" },
-  { label: "New Dub", icon: Plus, to: "/" },
-  { label: "Outputs", icon: ListMusic, to: "/outputs" },
-  { label: "Settings", icon: Settings, to: "/settings" },
-]
-
+import { NavLink } from "react-router-dom";
+import { AudioLines, Plus, ListMusic } from "lucide-react";
+import { cn } from "@/lib/utils";
 export function AppSidebar() {
-  const { pathname } = useLocation()
-
   return (
-    <aside className="flex h-screen w-[230px] flex-shrink-0 flex-col border-r border-[#E5EAF2] bg-white">
-      {/* Logo */}
-      <div className="flex items-center gap-2.5 px-5 py-5 border-b border-[#E5EAF2]">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#1D9BF0] shadow-sm">
-          <Mic2 className="h-4 w-4 text-white" />
-        </div>
-        <span className="text-[17px] font-bold tracking-tight text-[#0F172A]">Vocally</span>
+    <aside className="hidden w-[220px] shrink-0 flex-col border-r border-border bg-card md:flex">
+      <NavLink
+        to="/"
+        className="flex h-[76px] items-center gap-2.5 px-6"
+        aria-label="Vocally home"
+      >
+        <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-white">
+          <AudioLines className="size-5" />
+        </span>
+        <span className="text-xl font-semibold tracking-tight">
+          Vocally<span className="text-primary">.</span>
+        </span>
+      </NavLink>
+      <div className="px-6 pb-3 pt-7 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+        Workspace
       </div>
-
-      {/* Nav */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
-        {NAV_ITEMS.map(({ label, icon: Icon, to }) => {
-          const isActive =
-            to === "/"
-              ? pathname === "/" || pathname === "/new"
-              : pathname.startsWith(to)
-          return (
-            <Link
-              key={to}
-              to={to}
-              className={cn(
-                "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
+      <nav aria-label="Main navigation" className="flex flex-col gap-1 px-3">
+        {[
+          { to: "/", label: "New dub", icon: Plus },
+          { to: "/outputs", label: "Outputs", icon: ListMusic },
+        ].map(({ to, label, icon: Icon }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end
+            className={({ isActive }) =>
+              cn(
+                "flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors",
                 isActive
-                  ? "bg-[#EAF6FF] text-[#1D9BF0]"
-                  : "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]"
-              )}
-            >
-              <Icon
-                className={cn(
-                  "h-4 w-4 flex-shrink-0 transition-colors",
-                  isActive ? "text-[#1D9BF0]" : "text-[#94A3B8] group-hover:text-[#64748B]"
-                )}
-              />
-              {label}
-            </Link>
-          )
-        })}
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              )
+            }
+          >
+            <Icon className="size-[18px]" />
+            {label}
+          </NavLink>
+        ))}
       </nav>
-
-      {/* Bottom */}
-      <div className="px-4 py-4 border-t border-[#E5EAF2]">
-        <p className="text-xs text-[#94A3B8]">Vocally v1.0 · Hackathon MVP</p>
+      <div className="mt-auto p-6">
+        <p className="text-sm font-medium">Your content. More languages.</p>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+          A focused space for every dub.
+        </p>
       </div>
     </aside>
-  )
+  );
 }

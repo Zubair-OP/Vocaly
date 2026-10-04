@@ -36,7 +36,7 @@ export function AudioWavePreview({
           key={i}
           className={cn(
             "w-[3px] flex-shrink-0 rounded-full transition-colors duration-300",
-            i < active ? "bg-[#1D9BF0]" : "bg-[#E5EAF2]",
+            i < active ? "bg-primary" : "bg-[#E5EAF2]",
             animated && "animate-wave origin-center"
           )}
           style={{

@@ -49,21 +49,48 @@ export interface OutputItem {
   status: 'completed' | 'error';
 }
 
-class ApiError extends Error {
+export class ApiError extends Error {
   status: number;
+  code?: string;
   
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, code?: string) {
     super(message);
     this.status = status;
+    this.code = code;
   }
 }
 
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const data = await response.json().catch(() => ({ detail: 'An unexpected error occurred.' }));
-    throw new ApiError(data.detail || 'An unexpected error occurred.', response.status);
+    const detail = data.detail;
+    throw new ApiError(
+      typeof detail === 'string' ? detail : detail?.message || 'An unexpected error occurred.',
+      response.status,
+      typeof detail?.code === 'string' ? detail.code : undefined,
+    );
   }
   return response.json();
+}
+
+const GENERATION_ERRORS: Record<string, string> = {
+  translation_rate_limited: 'The translation service has reached its usage limit. Try again later or check the provider quota.',
+  translation_not_configured: 'Translation is not configured. Add a working translation API key to the backend.',
+  translation_failed: 'The transcript was fetched, but translation failed. Please try again.',
+  audio_generation_failed: 'Translation finished, but the speech service could not generate audio. Try again or choose another voice.',
+  output_storage_unavailable: 'Your audio was generated, but it could not be saved. Check the database connection and try again.',
+};
+
+export function generationErrorMessage(error: unknown, phase: 'transcript' | 'generation'): string {
+  if (error instanceof ApiError && error.code && GENERATION_ERRORS[error.code]) {
+    return GENERATION_ERRORS[error.code];
+  }
+  if (error instanceof TypeError || (error instanceof ApiError && error.status >= 502)) {
+    return 'The generation service is unavailable. Check that the backend is running and try again.';
+  }
+  return phase === 'transcript'
+    ? 'We could not fetch this transcript. Use a public video with captions that is under 4 minutes.'
+    : 'We could not create the audio from this transcript. Please try again or choose another voice.';
 }
 
 export async function fetchTranscript(youtubeUrl: string): Promise<FetchTranscriptResponse> {

@@ -42,7 +42,7 @@ export function ProcessingTimeline({ steps, className }: ProcessingTimelineProps
               {step.status === "done" ? (
                 <CheckCircle2 className="h-[22px] w-[22px] text-[#16A34A]" />
               ) : step.status === "active" ? (
-                <Loader2 className="h-[22px] w-[22px] animate-spin text-[#1D9BF0]" />
+                <Loader2 className="h-[22px] w-[22px] animate-spin text-accent-foreground" />
               ) : (
                 <Circle className="h-[22px] w-[22px] text-[#CBD5E1]" />
               )}
@@ -53,15 +53,15 @@ export function ProcessingTimeline({ steps, className }: ProcessingTimelineProps
                 <p
                   className={cn(
                     "text-sm font-medium transition-colors",
-                    step.status === "pending" ? "text-[#94A3B8]" : "text-[#0F172A]"
+                    step.status === "pending" ? "text-muted-foreground" : "text-foreground"
                   )}
                 >
                   {step.label}
                 </p>
-                {step.time && <span className="text-xs text-[#94A3B8]">{step.time}</span>}
+                {step.time && <span className="text-xs text-muted-foreground">{step.time}</span>}
               </div>
               {step.sub && (
-                <p className="mt-0.5 text-xs text-[#94A3B8] transition-colors">
+                <p className="mt-0.5 text-xs text-muted-foreground transition-colors">
                   {step.sub}
                 </p>
               )}
@@ -95,8 +95,8 @@ export function ProcessingLog({ entries, className, maxHeight = "h-64" }: Proces
               style={{ backgroundColor: dotColor(entry.type) }}
             />
             <div>
-              <p className="text-[13px] font-medium text-[#0F172A]">{entry.message}</p>
-              <p className="mt-0.5 font-mono text-[10px] text-[#94A3B8]">{entry.time}</p>
+              <p className="text-[13px] font-medium text-foreground">{entry.message}</p>
+              <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">{entry.time}</p>
             </div>
           </div>
         ))}

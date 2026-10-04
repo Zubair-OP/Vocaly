@@ -26,7 +26,7 @@ export function ExportOptionsCard({
 }: ExportOptionsCardProps) {
   return (
     <section className={className}>
-      <h4 className="mb-3 text-[15px] font-semibold tracking-tight text-[#0F172A]">{title}</h4>
+      <h4 className="mb-3 text-[15px] font-semibold tracking-tight text-foreground">{title}</h4>
 
       <div className="mb-4 flex gap-2">
         {formats.map((format) => {
@@ -40,8 +40,8 @@ export function ExportOptionsCard({
               className={cn(
                 "flex-1 rounded-xl border py-2 text-xs font-semibold uppercase tracking-wide transition-all duration-200",
                 isActive
-                  ? "border-[#1D9BF0] bg-[#EEF7FF] text-[#1D9BF0] shadow-[0_0_0_3px_rgba(29,155,240,0.10)]"
-                  : "border-[#E5EAF2] bg-white text-[#64748B] hover:border-[#D7E3F2] hover:bg-[#F8FAFC] hover:text-[#0F172A]"
+                  ? "border-[#1D9BF0] bg-accent text-accent-foreground shadow-[0_0_0_3px_rgba(29,155,240,0.10)]"
+                  : "border-border bg-white text-muted-foreground hover:border-[#D7E3F2] hover:bg-background hover:text-foreground"
               )}
             >
               {format}
@@ -54,7 +54,7 @@ export function ExportOptionsCard({
         type="button"
         onClick={onDownload}
         disabled={disabled}
-        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#1D9BF0] text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-[#178BFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D9BF0]/40 disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-[#178BFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D9BF0]/40 disabled:cursor-not-allowed disabled:opacity-50"
       >
         Download {value.toUpperCase()}
       </button>

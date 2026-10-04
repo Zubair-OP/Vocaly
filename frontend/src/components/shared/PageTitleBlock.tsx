@@ -25,13 +25,13 @@ export function PageTitleBlock({
     <div className={cn("animate-fade-in", className)}>
       {backAction}
 
-      <div className="flex items-start justify-between gap-6">
+      <div className="flex flex-wrap items-start justify-between gap-5">
         <div className="min-w-0">
-          <h1 className="text-[40px] font-bold leading-[1.06] tracking-[-0.03em] text-[#0F172A] xl:text-[46px]">
+          <h1 className="text-[32px] font-semibold leading-tight tracking-[-0.035em] text-foreground lg:text-[40px]">
             {title}
           </h1>
           {subtitle && (
-            <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-[#64748B]">
+            <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
               {subtitle}
             </p>
           )}
@@ -57,7 +57,7 @@ export function BackLink({ label = "Back", onClick, className }: BackLinkProps) 
       type="button"
       onClick={onClick}
       className={cn(
-        "mb-4 inline-flex items-center gap-1.5 rounded-lg px-1 py-1 text-sm font-medium text-[#64748B] transition-colors hover:text-[#1D9BF0]",
+        "mb-4 inline-flex items-center gap-1.5 rounded-lg px-1 py-1 text-sm font-medium text-muted-foreground transition-colors hover:text-accent-foreground",
         className
       )}
     >

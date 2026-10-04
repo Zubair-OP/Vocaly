@@ -20,11 +20,11 @@ interface SummaryRowProps {
 export function SummaryRow({ icon: Icon, label, value, className }: SummaryRowProps) {
   return (
     <div className={cn("flex items-center gap-3", className)}>
-      <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg border border-[#E5EAF2] bg-[#F8FAFC]">
-        <Icon className="h-3.5 w-3.5 text-[#64748B]" />
+      <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg border border-border bg-background">
+        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
       </span>
-      <span className="w-[74px] flex-shrink-0 text-xs text-[#94A3B8]">{label}</span>
-      <span className="min-w-0 flex-1 truncate text-sm font-medium text-[#0F172A]">{value}</span>
+      <span className="w-[74px] flex-shrink-0 text-xs text-muted-foreground">{label}</span>
+      <span className="min-w-0 flex-1 break-words text-sm font-medium text-foreground">{value}</span>
     </div>
   )
 }
@@ -45,7 +45,7 @@ export function ProjectSummaryPanel({
 }: ProjectSummaryPanelProps) {
   return (
     <RightPanelCard title={title} className={className} bodyClassName={bodyClassName}>
-      <div className="space-y-3.5">
+      <div className="flex flex-col gap-3.5">
         {items.map((item) => (
           <SummaryRow key={item.label} icon={item.icon} label={item.label} value={item.value} />
         ))}

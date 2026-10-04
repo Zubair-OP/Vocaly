@@ -1,8 +1,10 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom"
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { QuickDub } from "@/pages/QuickDub"
-import { Outputs } from "@/pages/Outputs"
-import { GeneratingAudio } from "@/pages/GeneratingAudio"
+import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { AppShell } from "@/components/AppShell";
+import { Button } from "@/components/ui/button";
+import { QuickDub } from "@/pages/QuickDub";
+import { Outputs } from "@/pages/Outputs";
+import { GeneratingAudio } from "@/pages/GeneratingAudio";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -11,7 +13,7 @@ const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
     },
   },
-})
+});
 
 function App() {
   return (
@@ -20,13 +22,31 @@ function App() {
         <Routes>
           <Route path="/" element={<QuickDub />} />
           <Route path="/new" element={<QuickDub />} />
+          <Route
+            path="*"
+            element={
+              <AppShell>
+                <div className="workspace-main flex flex-col items-start gap-4">
+                  <p className="text-sm text-muted-foreground">404</p>
+                  <h1 className="text-3xl font-semibold">Page not found</h1>
+                  <p className="text-muted-foreground">
+                    This page is not available. Return to your workspace to
+                    create a dub.
+                  </p>
+                  <Button asChild>
+                    <Link to="/">Back to workspace</Link>
+                  </Button>
+                </div>
+              </AppShell>
+            }
+          />
           <Route path="/outputs" element={<Outputs />} />
           <Route path="/processing" element={<GeneratingAudio />} />
           <Route path="/dub/:id/progress" element={<GeneratingAudio />} />
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>
-  )
+  );
 }
 
-export default App
+export default App;

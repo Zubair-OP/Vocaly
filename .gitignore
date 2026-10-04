@@ -55,3 +55,7 @@ Thumbs.db
 
 # Helper scripts
 powershell.bat
+
+# Browser verification artifacts
+frontend/test-results/
+frontend/playwright-report/
