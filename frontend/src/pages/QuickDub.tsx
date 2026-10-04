@@ -1,4 +1,5 @@
 import { VideoThumbnail } from "@/components/shared/VideoThumbnail";
+import { SpeechControls, type SpeechSettings } from "@/components/SpeechControls";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppShell } from "@/components/AppShell";
@@ -36,9 +37,10 @@ import {
   fetchOutputs,
   generateAudio,
   generationErrorMessage,
+  fetchVoices, uploadSpeakerReference, type VoiceOption,
   type OutputItem,
 } from "@/lib/api";
-import { LANGUAGES, VOICES, langName, relativeTime } from "@/lib/format";
+import { LANGUAGES, VOICES, langName, narrationName, relativeTime } from "@/lib/format";
 import {
   Link2,
   Upload,
@@ -63,12 +65,12 @@ type Step =
 
 /** The real pipeline, mirrored by the animated stepper under the CTA. */
 const PIPELINE_STEPS = [
-  { id: "fetch", label: "Fetch Audio" },
-  { id: "transcribe", label: "Transcribe" },
+  { id: "fetch", label: "Fetch Captions" },
+  { id: "transcribe", label: "Translate" },
   { id: "generate", label: "Generate Audio" },
 ];
 
-const STAGE_LABELS = ["Fetching audio…", "Transcribing…", "Generating audio…"];
+const STAGE_LABELS = ["Fetching captions…", "Translating…", "Generating audio…"];
 
 // ── recent outputs (loaded from MongoDB) ───────────────────────────────
 
@@ -127,6 +129,10 @@ export function QuickDub() {
   const [sourceLanguage, setSourceLanguage] = useState("en");
   const [targetLanguage, setTargetLanguage] = useState("ur");
   const [voice, setVoice] = useState("ur-PK-UzmaNeural");
+  const [voiceCatalogue, setVoiceCatalogue] = useState<Record<string, VoiceOption[]>>(VOICES);
+  const [referenceAvailable, setReferenceAvailable] = useState(false);
+  const [referenceLanguages, setReferenceLanguages] = useState<string[]>([]);
+  const [speechSettings, setSpeechSettings] = useState<SpeechSettings>({ narration_style: "normal", speech_mode: "standard", speaker_consent: false, referenceFile: null });
   const [step, setStep] = useState<Step>("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [videoTitle, setVideoTitle] = useState("");
@@ -164,6 +170,22 @@ export function QuickDub() {
     };
   }, [reload]);
 
+  useEffect(() => {
+    let active = true;
+    fetchVoices().then((data) => {
+      if (!active) return;
+      setVoiceCatalogue(data.voices);
+      setReferenceAvailable(data.reference_voice?.available ?? false);
+      setReferenceLanguages(data.reference_voice?.languages ?? []);
+    }).catch(() => { /* Retain known voices if discovery is unavailable. */ });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    const voices = voiceCatalogue[targetLanguage] || [];
+    if (!voices.some((item) => item.id === voice)) setVoice(voices[0]?.id || "");
+  }, [voiceCatalogue, targetLanguage, voice]);
+
   const videoId = extractVideoId(url);
   const thumbnailUrl = videoId
     ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`
@@ -171,7 +193,7 @@ export function QuickDub() {
 
   const handleTargetLanguageChange = (lang: string) => {
     setTargetLanguage(lang);
-    const voices = VOICES[lang];
+    const voices = voiceCatalogue[lang];
     if (voices?.length) setVoice(voices[0].id);
   };
 
@@ -186,6 +208,11 @@ export function QuickDub() {
   }, []);
 
   const handleGenerate = async () => {
+    if (speechSettings.speech_mode === "reference" && (!referenceAvailable || !referenceLanguages.includes(targetLanguage) || !speechSettings.referenceFile || !speechSettings.speaker_consent)) {
+      setErrorMessage("Choose a supported language, upload a reference WAV and confirm speaker permission.");
+      setStep("error");
+      return;
+    }
     if (!extractVideoId(url.trim())) {
       setErrorMessage("Please enter a valid YouTube video URL.");
       setStep("error");
@@ -199,7 +226,7 @@ export function QuickDub() {
     let promote: ReturnType<typeof setTimeout> | undefined;
     let phase: 'transcript' | 'generation' = 'transcript';
     try {
-      const transcript = await fetchTranscript(url);
+      const transcript = await fetchTranscript(url, sourceLanguage);
       if (!mounted.current) return;
       setVideoTitle(transcript.title);
 
@@ -210,7 +237,7 @@ export function QuickDub() {
       phase = 'generation';
       setStage(1);
 
-      // The backend transcribes, translates, and synthesises audio in one call,
+      // The backend translates and synthesises audio in one call,
       // so the stepper advances to the last stage while that call is running.
       promote = setTimeout(() => {
         setStep("generating");
@@ -219,12 +246,17 @@ export function QuickDub() {
 
       timers.current.push(promote);
       // The backend translates, synthesises audio, and saves the output to MongoDB.
+      const reference = speechSettings.speech_mode === "reference" && speechSettings.referenceFile ? await uploadSpeakerReference(speechSettings.referenceFile) : undefined;
       await generateAudio({
         video_id: transcript.video_id,
         title: transcript.title,
         source_language: transcript.source_language || sourceLanguage,
         target_language: targetLanguage,
         voice,
+        narration_style: speechSettings.narration_style,
+        speech_mode: speechSettings.speech_mode,
+        speaker_consent: speechSettings.speaker_consent,
+        reference_id: reference?.reference_id,
         transcript: transcript.segments.map((s) => s.text).join(" "),
       });
 
@@ -243,7 +275,7 @@ export function QuickDub() {
 
   const isProcessing =
     step === "fetching" || step === "translating" || step === "generating";
-  const availableVoices = VOICES[targetLanguage] || [];
+  const availableVoices = voiceCatalogue[targetLanguage] || [];
 
   const sourceLang = LANGUAGES.find((l) => l.code === sourceLanguage);
   const targetLang = LANGUAGES.find((l) => l.code === targetLanguage);
@@ -412,6 +444,7 @@ export function QuickDub() {
                         </SelectContent>
                       </Select>
                     </Field>
+                    <SpeechControls language={targetLanguage} voice={voice} disabled={isProcessing} referenceAvailable={referenceAvailable} referenceLanguages={referenceLanguages} settings={speechSettings} onChange={setSpeechSettings} />
                     <div className="flex flex-col gap-3 pt-1">
                       <Button
                         type="submit"
@@ -625,7 +658,8 @@ export function QuickDub() {
                 label: "To",
                 value: targetLang?.name || langName(targetLanguage),
               },
-              { icon: FileAudio, label: "Output", value: "MP3 audio" },
+              { icon: FileAudio, label: "Output", value: speechSettings.speech_mode === "reference" ? "WAV audio" : "MP3 audio" },
+              { icon: FileAudio, label: "Delivery", value: speechSettings.speech_mode === "reference" ? "Reference sample" : narrationName(speechSettings.narration_style) },
             ]}
           />
           <YouTubeVideoPreviewCard

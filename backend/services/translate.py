@@ -6,16 +6,11 @@ Handles transcript chunking and sequential translation.
 import os
 import google.generativeai as genai
 from dotenv import load_dotenv
+from services.languages import LANGUAGE_NAMES
 
 load_dotenv()
 
 # Language display names for prompt engineering
-LANGUAGE_NAMES = {
-    "en": "English",
-    "ur": "Urdu",
-    "hi": "Hindi",
-    "ar": "Arabic",
-}
 
 # Chunk size for splitting long transcripts (in characters)
 MAX_CHUNK_SIZE = 3000
@@ -206,4 +201,3 @@ async def _translate_with_groq(text: str, source_lang: str, target_lang: str, ap
             translated_chunks.append(content)
 
     return " ".join(translated_chunks)
-

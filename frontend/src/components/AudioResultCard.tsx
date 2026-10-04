@@ -2,14 +2,8 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { type OutputItem } from "@/lib/api"
+import { langName } from "@/lib/format"
 import { Download, ChevronDown, ChevronUp, Play } from "lucide-react"
-
-const LANGUAGE_NAMES: Record<string, string> = {
-  en: "English",
-  ur: "Urdu",
-  hi: "Hindi",
-  ar: "Arabic",
-}
 
 interface AudioResultCardProps {
   output: OutputItem
@@ -19,13 +13,14 @@ export function AudioResultCard({ output }: AudioResultCardProps) {
   const [showOriginal, setShowOriginal] = useState(false)
   const [showTranslated, setShowTranslated] = useState(false)
 
-  const sourceName = LANGUAGE_NAMES[output.sourceLanguage] || output.sourceLanguage
-  const targetName = LANGUAGE_NAMES[output.targetLanguage] || output.targetLanguage
+  const sourceName = langName(output.sourceLanguage)
+  const targetName = langName(output.targetLanguage)
+  const format = output.audioUrl.endsWith(".wav") ? "wav" : "mp3"
 
   const handleDownload = () => {
     const link = document.createElement("a")
     link.href = output.audioUrl
-    link.download = `vocally_${output.videoId}_${output.targetLanguage}.mp3`
+    link.download = `vocally_${output.videoId}_${output.targetLanguage}.${format}`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -69,7 +64,7 @@ export function AudioResultCard({ output }: AudioResultCardProps) {
           disabled={output.status !== "completed"}
         >
           <Download className="mr-2 h-4 w-4" />
-          Download MP3
+          Download {format.toUpperCase()}
         </Button>
 
         {/* Original Transcript (collapsible) */}

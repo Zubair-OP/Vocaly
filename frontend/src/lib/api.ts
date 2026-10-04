@@ -32,6 +32,22 @@ export interface VoiceOption {
 
 export interface VoicesResponse {
   voices: Record<string, VoiceOption[]>;
+  reference_voice?: { available: boolean; languages: string[] };
+}
+
+export type NarrationStyle = 'normal' | 'motivational' | 'calm';
+
+export async function previewVoice(target_language: string, voice: string, narration_style: NarrationStyle): Promise<{ audio_url: string }> {
+  return handleResponse(await fetch(`${API_BASE}/voice-preview`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ target_language, voice, narration_style }),
+  }));
+}
+
+export async function uploadSpeakerReference(file: File): Promise<{ reference_id: string }> {
+  return handleResponse(await fetch(`${API_BASE}/speaker-reference`, {
+    method: 'POST', headers: { 'Content-Type': 'audio/wav' }, body: file,
+  }));
 }
 
 // Output persisted by the backend in MongoDB
@@ -42,6 +58,8 @@ export interface OutputItem {
   sourceLanguage: string;
   targetLanguage: string;
   voice?: string;
+  narrationStyle?: NarrationStyle;
+  speechMode?: 'standard' | 'reference';
   originalTranscript: string;
   translatedText: string;
   audioUrl: string;
@@ -82,6 +100,7 @@ const GENERATION_ERRORS: Record<string, string> = {
 };
 
 export function generationErrorMessage(error: unknown, phase: 'transcript' | 'generation'): string {
+  if (error instanceof ApiError && ['reference_unavailable', 'reference_generation_failed'].includes(error.code || '')) return error.message;
   if (error instanceof ApiError && error.code && GENERATION_ERRORS[error.code]) {
     return GENERATION_ERRORS[error.code];
   }
@@ -93,11 +112,11 @@ export function generationErrorMessage(error: unknown, phase: 'transcript' | 'ge
     : 'We could not create the audio from this transcript. Please try again or choose another voice.';
 }
 
-export async function fetchTranscript(youtubeUrl: string): Promise<FetchTranscriptResponse> {
+export async function fetchTranscript(youtubeUrl: string, preferredLanguage = 'en'): Promise<FetchTranscriptResponse> {
   const response = await fetch(`${API_BASE}/fetch-transcript`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ youtube_url: youtubeUrl }),
+    body: JSON.stringify({ youtube_url: youtubeUrl, preferred_language: preferredLanguage }),
   });
   return handleResponse<FetchTranscriptResponse>(response);
 }
@@ -109,6 +128,10 @@ export async function generateAudio(params: {
   voice: string;
   transcript: string;
   title?: string;
+  narration_style?: NarrationStyle;
+  speech_mode?: 'standard' | 'reference';
+  reference_id?: string;
+  speaker_consent?: boolean;
 }): Promise<GenerateResponse> {
   const response = await fetch(`${API_BASE}/generate`, {
     method: 'POST',

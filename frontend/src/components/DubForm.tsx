@@ -14,38 +14,9 @@ import {
   generateAudio, 
   type FetchTranscriptResponse,
   type OutputItem,
-  type VoiceOption 
 } from "@/lib/api"
 import { ClipboardPaste, Wand2, ChevronDown, ChevronUp } from "lucide-react"
-
-// Supported languages
-const LANGUAGES = [
-  { code: "en", name: "English" },
-  { code: "ur", name: "Urdu" },
-  { code: "hi", name: "Hindi" },
-  { code: "ar", name: "Arabic" },
-]
-
-// Voice options per language (mirrors backend)
-const VOICES: Record<string, VoiceOption[]> = {
-  en: [
-    { id: "en-US-GuyNeural", name: "Guy (US Male)" },
-    { id: "en-US-JennyNeural", name: "Jenny (US Female)" },
-    { id: "en-GB-RyanNeural", name: "Ryan (UK Male)" },
-  ],
-  ur: [
-    { id: "ur-PK-UzmaNeural", name: "Uzma (Female)" },
-    { id: "ur-PK-AsadNeural", name: "Asad (Male)" },
-  ],
-  hi: [
-    { id: "hi-IN-SwaraNeural", name: "Swara (Female)" },
-    { id: "hi-IN-MadhurNeural", name: "Madhur (Male)" },
-  ],
-  ar: [
-    { id: "ar-SA-ZariyahNeural", name: "Zariyah (Female)" },
-    { id: "ar-SA-HamedNeural", name: "Hamed (Male)" },
-  ],
-}
+import { LANGUAGES, VOICES } from "@/lib/format"
 
 interface DubFormProps {
   onComplete: (output: OutputItem) => void

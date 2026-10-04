@@ -21,7 +21,7 @@ import { OutputsTable } from "@/components/shared/OutputsTable";
 import { TranscriptSnippetCard } from "@/components/shared/TranscriptSnippetCard";
 import { YouTubeVideoPreviewCard } from "@/components/shared/YouTubeVideoPreviewCard";
 import { fetchOutputs, type OutputItem } from "@/lib/api";
-import { fmtDate, langName, voiceName } from "@/lib/format";
+import { fmtDate, langName, narrationName, voiceName } from "@/lib/format";
 
 export function Outputs() {
   const [params, setParams] = useSearchParams();
@@ -109,7 +109,7 @@ export function Outputs() {
     const a = document.createElement("a");
     a.href = output.audioUrl;
     a.download =
-      "vocally_" + output.videoId + "_" + output.targetLanguage + ".mp3";
+      "vocally_" + output.videoId + "_" + output.targetLanguage + (output.audioUrl.endsWith(".wav") ? ".wav" : ".mp3");
     a.click();
   };
   const list = (
@@ -282,6 +282,7 @@ export function Outputs() {
                     label: "Voice",
                     value: voiceName(selected.voice),
                   },
+                  { icon: Mic2, label: "Delivery", value: selected.speechMode === "reference" ? "Reference sample" : narrationName(selected.narrationStyle) },
                 ]}
               />
               <RightPanelCard title="Audio preview">
@@ -343,7 +344,7 @@ export function Outputs() {
                 <div className="mb-4 flex items-center justify-between">
                   <h2 className="text-sm font-semibold">Export audio</h2>
                   <span className="text-xs text-muted-foreground">
-                    MP3 format
+                    {selected.audioUrl.endsWith(".wav") ? "WAV" : "MP3"} format
                   </span>
                 </div>
                 <Button
@@ -354,7 +355,7 @@ export function Outputs() {
                   }
                 >
                   <Download data-icon="inline-start" />
-                  Download MP3
+                  Download {selected.audioUrl.endsWith(".wav") ? "WAV" : "MP3"}
                 </Button>
               </section>
               <TranscriptSnippetCard

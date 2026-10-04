@@ -2,6 +2,10 @@
 
 Turn YouTube videos into translated audio. Paste a link, choose a language, download the dubbed MP3.
 
+Supports 10 target languages, voice previews, and Normal / Motivational / Calm
+narration presets. Optional reference-voice generation produces WAV audio with
+XTTS-v2. See [speech setup and validation](backend/SPEECH.md) for usage and model requirements.
+
 ## Quick Start
 
 ### Prerequisites

@@ -76,7 +76,10 @@ def fetch_transcript(video_id: str, preferred_lang: str = "en") -> dict:
         except Exception:
             try:
                 # Fallback: fetch any available transcript
-                transcript = ytt_api.fetch(video_id)
+                available = list(ytt_api.list(video_id))
+                if not available:
+                    raise ValueError("No captions available")
+                transcript = available[0].fetch()
             except Exception as inner_e:
                 return {
                     "error": f"This video does not expose a transcript. Try another video. ({str(inner_e)})"
@@ -86,6 +89,8 @@ def fetch_transcript(video_id: str, preferred_lang: str = "en") -> dict:
             return {
                 "error": "This video does not expose a transcript. Try another video."
             }
+
+        source_lang = getattr(transcript, "language_code", preferred_lang)
 
         # Convert transcript to segments list
         formatted_segments = []

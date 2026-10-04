@@ -6,6 +6,8 @@ FastAPI server for YouTube transcript fetching, translation, and TTS generation.
 import os
 import sys
 import uuid
+import asyncio
+from typing import Literal
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,16 +16,18 @@ from pathlib import Path
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
 import db
 from services.transcript import validate_youtube_url, fetch_transcript, fetch_video_title
 from services.translate import translate_text
-from services.tts import generate_speech, get_voices_for_language, VOICE_MAP
+from services.tts import generate_speech, voice_catalogue, validate_voice
+from services.languages import LANGUAGE_NAMES, PREVIEW_TEXT
+from services import reference_voice
 
 load_dotenv()
 
@@ -63,15 +67,26 @@ app.add_middleware(
 
 class FetchTranscriptRequest(BaseModel):
     youtube_url: str
+    preferred_language: str = "en"
 
 
 class GenerateRequest(BaseModel):
-    video_id: str
+    video_id: str = Field(pattern=r"^[a-zA-Z0-9_-]{11}$")
     source_language: str
     target_language: str
     voice: str
-    transcript: str
+    transcript: str = Field(min_length=1, max_length=30000)
     title: str = ""
+    narration_style: Literal["normal", "motivational", "calm"] = "normal"
+    speech_mode: Literal["standard", "reference"] = "standard"
+    reference_id: str | None = None
+    speaker_consent: bool = False
+
+
+class VoicePreviewRequest(BaseModel):
+    target_language: str
+    voice: str
+    narration_style: Literal["normal", "motivational", "calm"] = "normal"
 
 
 class OutputPayload(BaseModel):
@@ -106,10 +121,36 @@ async def health():
 async def get_voices():
     """Return available voices grouped by language."""
     return {
-        "voices": {
-            lang: voices for lang, voices in VOICE_MAP.items()
-        }
+        "voices": await voice_catalogue(),
+        "languages": LANGUAGE_NAMES,
+        "reference_voice": {"available": reference_voice.is_available(), "languages": sorted(reference_voice.supported_languages())},
     }
+
+
+@app.post("/api/voice-preview")
+async def api_voice_preview(req: VoicePreviewRequest):
+    if not await validate_voice(req.target_language, req.voice):
+        raise HTTPException(400, "Choose a voice available in the selected language.")
+    result = await generate_speech(PREVIEW_TEXT[req.target_language], req.voice, "preview", req.target_language, OUTPUT_DIR, req.narration_style)
+    if "error" in result:
+        raise HTTPException(502, "Voice preview could not be generated. Try again.")
+    return {"audio_url": f'/api/audio/{result["audio_filename"]}'}
+
+
+@app.post("/api/speaker-reference")
+async def api_speaker_reference(request: Request):
+    if not reference_voice.is_available():
+        raise HTTPException(503, detail={"code": "reference_unavailable", "message": "Reference voice mode is not enabled on this server."})
+    data = bytearray()
+    async for chunk in request.stream():
+        if len(data) + len(chunk) > 5 * 1024 * 1024:
+            raise HTTPException(413, "Reference file must be smaller than 5 MB.")
+        data.extend(chunk)
+    try:
+        reference_id = await asyncio.to_thread(reference_voice.save_reference, bytes(data), OUTPUT_DIR)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return {"reference_id": reference_id}
 
 
 @app.post("/api/fetch-transcript")
@@ -126,7 +167,7 @@ async def api_fetch_transcript(req: FetchTranscriptRequest):
     title = await fetch_video_title(video_id)
 
     # Fetch transcript
-    result = fetch_transcript(video_id)
+    result = await asyncio.to_thread(fetch_transcript, video_id, req.preferred_language)
 
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
@@ -141,6 +182,20 @@ async def api_generate(req: GenerateRequest):
     Translate transcript, generate TTS audio, and persist the output in MongoDB.
     Returns translated text, audio URL, and the saved output document.
     """
+    if req.target_language not in LANGUAGE_NAMES:
+        raise HTTPException(400, "Choose a supported target language.")
+    if req.speech_mode == "reference":
+        if not reference_voice.is_available():
+            raise HTTPException(503, detail={"code": "reference_unavailable", "message": "Reference voice mode is not enabled on this server."})
+        if req.target_language not in reference_voice.supported_languages() or not req.speaker_consent:
+            raise HTTPException(400, "Choose a supported reference language and confirm speaker permission.")
+        try:
+            reference_voice.reference_path(req.reference_id or "", OUTPUT_DIR)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+    elif not await validate_voice(req.target_language, req.voice):
+        raise HTTPException(400, "Choose a voice available in the selected language.")
+
     # Step 1: Translate
     translation_result = await translate_text(
         text=req.transcript,
@@ -154,16 +209,25 @@ async def api_generate(req: GenerateRequest):
     translated_text = translation_result["translated_text"]
 
     # Step 2: Generate speech
-    tts_result = await generate_speech(
-        text=translated_text,
-        voice=req.voice,
-        video_id=req.video_id,
-        target_language=req.target_language,
-        output_dir=OUTPUT_DIR,
-    )
+    if req.speech_mode == "reference":
+        tts_result = await reference_voice.generate_reference_speech(translated_text, req.target_language, req.reference_id, OUTPUT_DIR)
+    else:
+        tts_result = await generate_speech(
+            text=translated_text,
+            voice=req.voice,
+            video_id=req.video_id,
+            target_language=req.target_language,
+            output_dir=OUTPUT_DIR,
+            narration_style=req.narration_style,
+        )
 
     if "error" in tts_result:
-        raise HTTPException(status_code=502, detail={"code": "audio_generation_failed", "message": "The speech service could not generate audio. Try again or choose another voice."})
+        message = (
+            "Reference voice generation failed. Check the local XTTS setup or use a standard voice."
+            if req.speech_mode == "reference"
+            else "The speech service could not generate audio. Try again or choose another voice."
+        )
+        raise HTTPException(status_code=502, detail={"code": tts_result.get("error_code", "audio_generation_failed"), "message": message})
 
     audio_filename = tts_result["audio_filename"]
     audio_url = f"/api/audio/{audio_filename}"
@@ -180,7 +244,9 @@ async def api_generate(req: GenerateRequest):
         "title": title,
         "source_language": req.source_language,
         "target_language": req.target_language,
-        "voice": req.voice,
+        "voice": req.voice if req.speech_mode == "standard" else "Reference voice (XTTS)",
+        "narration_style": req.narration_style,
+        "speech_mode": req.speech_mode,
         "original_transcript": req.transcript,
         "translated_text": translated_text,
         "audio_url": audio_url,
@@ -284,14 +350,17 @@ async def api_clear_outputs():
 @app.get("/api/audio/{filename}")
 async def serve_audio(filename: str):
     """Serve generated MP3 file."""
-    filepath = Path(OUTPUT_DIR) / filename
+    directory = Path(OUTPUT_DIR).resolve()
+    filepath = (directory / filename).resolve()
+    if filepath.parent != directory or filepath.suffix not in {".mp3", ".wav"}:
+        raise HTTPException(status_code=404, detail="Audio file not found.")
 
     if not filepath.exists():
         raise HTTPException(status_code=404, detail="Audio file not found.")
 
     return FileResponse(
         path=str(filepath),
-        media_type="audio/mpeg",
+        media_type="audio/wav" if filepath.suffix == ".wav" else "audio/mpeg",
         filename=filename,
     )
 

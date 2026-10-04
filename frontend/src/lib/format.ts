@@ -16,6 +16,12 @@ export const LANGUAGES: LanguageOption[] = [
   { code: "ur", name: "Urdu", flag: "🇵🇰" },
   { code: "hi", name: "Hindi", flag: "🇮🇳" },
   { code: "ar", name: "Arabic", flag: "🇸🇦" },
+  { code: "es", name: "Spanish", flag: "🇪🇸" },
+  { code: "fr", name: "French", flag: "🇫🇷" },
+  { code: "de", name: "German", flag: "🇩🇪" },
+  { code: "pt", name: "Portuguese", flag: "🇧🇷" },
+  { code: "zh", name: "Chinese", flag: "🇨🇳" },
+  { code: "ja", name: "Japanese", flag: "🇯🇵" },
 ];
 
 const LANG_NAMES: Record<string, string> = {
@@ -23,6 +29,12 @@ const LANG_NAMES: Record<string, string> = {
   ur: "Urdu",
   hi: "Hindi",
   ar: "Arabic",
+  es: "Spanish",
+  fr: "French",
+  de: "German",
+  pt: "Portuguese",
+  zh: "Chinese",
+  ja: "Japanese",
 };
 
 /** Voice catalogue per language — mirrors the backend `VOICE_MAP`. */
@@ -44,6 +56,12 @@ export const VOICES: Record<string, VoiceOption[]> = {
     { id: "ar-SA-ZariyahNeural", name: "Zariyah (Female)" },
     { id: "ar-SA-HamedNeural", name: "Hamed (Male)" },
   ],
+  es: [{ id: "es-ES-ElviraNeural", name: "Elvira (Spain Female)" }],
+  fr: [{ id: "fr-FR-DeniseNeural", name: "Denise (France Female)" }],
+  de: [{ id: "de-DE-KatjaNeural", name: "Katja (Germany Female)" }],
+  pt: [{ id: "pt-BR-FranciscaNeural", name: "Francisca (Brazil Female)" }],
+  zh: [{ id: "zh-CN-XiaoxiaoNeural", name: "Xiaoxiao (Mandarin Female)" }],
+  ja: [{ id: "ja-JP-NanamiNeural", name: "Nanami (Japan Female)" }],
 };
 
 /** Friendly voice label for a stored voice id. */
@@ -59,6 +77,10 @@ export function voiceName(id?: string | null): string {
 /** Plain language name, e.g. `English`. */
 export function langName(code: string): string {
   return LANG_NAMES[code] || code || "—";
+}
+
+export function narrationName(style?: string): string {
+  return ({ normal: "Normal", motivational: "Motivational", calm: "Calm" } as Record<string, string>)[style || "normal"] || "Normal";
 }
 
 /** Language name with flag, e.g. `🇺🇸 English`. */
