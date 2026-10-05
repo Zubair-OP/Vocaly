@@ -18,8 +18,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 import { PageTitleBlock } from "@/components/shared/PageTitleBlock";
-import { ProjectSummaryPanel } from "@/components/shared/ProjectSummaryPanel";
-import { YouTubeVideoPreviewCard } from "@/components/shared/YouTubeVideoPreviewCard";
+import { VideoThumbnail } from "@/components/shared/VideoThumbnail";
 import { StepProgress } from "@/components/shared/StepProgress";
 
 import {
@@ -28,16 +27,14 @@ import {
   generationErrorMessage,
   fetchVoices, uploadSpeakerReference, type VoiceOption,
 } from "@/lib/api";
-import { LANGUAGES, VOICES, langName, narrationName } from "@/lib/format";
+import { LANGUAGES, VOICES } from "@/lib/format";
 import {
   Link2,
   Upload,
-  Globe,
   ArrowRight,
   Info,
   Youtube,
   Loader2,
-  FileAudio,
   X,
 } from "lucide-react";
 
@@ -123,9 +120,6 @@ export function QuickDub() {
   }, [voiceCatalogue, targetLanguage, voice]);
 
   const videoId = extractVideoId(url);
-  const thumbnailUrl = videoId
-    ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`
-    : null;
 
   const handleTargetLanguageChange = (lang: string) => {
     setTargetLanguage(lang);
@@ -183,7 +177,7 @@ export function QuickDub() {
       timers.current.push(promote);
       // The backend translates, synthesises audio, and saves the output to MongoDB.
       const reference = speechSettings.speech_mode === "reference" && speechSettings.referenceFile ? await uploadSpeakerReference(speechSettings.referenceFile) : undefined;
-      await generateAudio({
+      const result = await generateAudio({
         video_id: transcript.video_id,
         title: transcript.title,
         source_language: transcript.source_language || sourceLanguage,
@@ -199,7 +193,10 @@ export function QuickDub() {
       clearTimeout(promote);
       if (!mounted.current) return;
       setStep("completed");
-      timers.current.push(setTimeout(() => navigate("/outputs"), 900));
+      const destination = result.output?.id
+        ? "/outputs?id=" + encodeURIComponent(result.output.id)
+        : "/outputs";
+      timers.current.push(setTimeout(() => navigate(destination), 900));
     } catch (error) {
       if (!mounted.current) return;
       setStep("error");
@@ -213,12 +210,10 @@ export function QuickDub() {
     step === "fetching" || step === "translating" || step === "generating";
   const availableVoices = voiceCatalogue[targetLanguage] || [];
 
-  const sourceLang = LANGUAGES.find((l) => l.code === sourceLanguage);
-  const targetLang = LANGUAGES.find((l) => l.code === targetLanguage);
 
   return (
     <AppShell>
-      <div className="workspace-grid">
+      <div className="studio-page create-page">
         <div className="workspace-main flex flex-col gap-7">
           <PageTitleBlock
             title="Give your video a new voice."
@@ -309,6 +304,17 @@ export function QuickDub() {
                         </Button>
                       </div>
                     </Field>
+                    {videoId && (
+                      <article className="source-preview" aria-label="Source video preview">
+                        <div className="source-preview-image"><VideoThumbnail videoId={videoId} /></div>
+                        <div className="min-w-0">
+                          <span className="studio-eyebrow">YOUR SOURCE VIDEO</span>
+                          <p className="mt-1 break-words text-sm font-medium">{videoTitle || "YouTube video selected"}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{videoTitle ? "Transcript fetched. Your dub is on its way." : "We will fetch the title and captions when you generate."}</p>
+                        </div>
+                      </article>
+                    )}
+                    <div className="form-section-heading"><span>02</span><h3>Choose your languages</h3></div>
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <Field className="gap-2">
                         <FieldLabel htmlFor="source-language">
@@ -357,6 +363,8 @@ export function QuickDub() {
                         </Select>
                       </Field>
                     </div>
+                    <div className="form-section-heading"><span>03</span><h3>Make it sound right</h3></div>
+                    <div className="voice-settings-grid">
                     <Field className="gap-2">
                       <FieldLabel htmlFor="voice-select">Voice</FieldLabel>
                       <Select
@@ -382,6 +390,7 @@ export function QuickDub() {
                       </Select>
                     </Field>
                     <SpeechControls language={targetLanguage} voice={voice} disabled={isProcessing} referenceAvailable={referenceAvailable} referenceLanguages={referenceLanguages} settings={speechSettings} onChange={setSpeechSettings} />
+                    </div>
                     <div className="flex flex-col gap-3 pt-1">
                       <Button
                         type="submit"
@@ -480,58 +489,7 @@ export function QuickDub() {
             </ol>
           </section>
         </div>
-        <aside
-          className="workspace-detail flex flex-col gap-6"
-          aria-label="Current dub setup"
-        >
-          <div>
-            <h2 className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-              Your dub
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              A quick look at your setup.
-            </p>
-          </div>
-          <ProjectSummaryPanel
-            title="Current setup"
-            items={[
-              { icon: Youtube, label: "Source", value: "YouTube" },
-              {
-                icon: Globe,
-                label: "From",
-                value: sourceLang?.name || langName(sourceLanguage),
-              },
-              {
-                icon: Globe,
-                label: "To",
-                value: targetLang?.name || langName(targetLanguage),
-              },
-              { icon: FileAudio, label: "Output", value: speechSettings.speech_mode === "reference" ? "WAV audio" : "MP3 audio" },
-              { icon: FileAudio, label: "Delivery", value: speechSettings.speech_mode === "reference" ? "Reference sample" : narrationName(speechSettings.narration_style) },
-            ]}
-          />
-          <YouTubeVideoPreviewCard
-            videoId={videoId}
-            title={
-              videoTitle || (videoId ? "Video preview" : "No video selected")
-            }
-            subtitle={
-              videoId
-                ? "The title will appear when the transcript is fetched."
-                : "Your source video will appear here."
-            }
-            thumbnailBadge={thumbnailUrl ? "Preview" : undefined}
-          />
-          <section className="border-t border-border pt-5">
-            <h3 className="text-sm font-medium">
-              A better dub starts with clear speech
-            </h3>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Choose a short video with accurate captions. We detect the source
-              language when the transcript is fetched.
-            </p>
-          </section>
-        </aside>
+
       </div>
     </AppShell>
   );

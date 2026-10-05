@@ -1,25 +1,23 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
-  Globe,
-  Mic2,
   RefreshCw,
   Search,
-  ListMusic,
+  AudioLines,
+  FileText,
+  ArrowRight,
   Download,
   Plus,
 } from "lucide-react";
+import { OutputTranscript } from "@/components/OutputTranscript";
+import { VideoThumbnail } from "@/components/shared/VideoThumbnail";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageTitleBlock } from "@/components/shared/PageTitleBlock";
-import { RightPanelCard } from "@/components/shared/RightPanelCard";
-import { ProjectSummaryPanel } from "@/components/shared/ProjectSummaryPanel";
 import { OutputsTable } from "@/components/shared/OutputsTable";
-import { TranscriptSnippetCard } from "@/components/shared/TranscriptSnippetCard";
-import { YouTubeVideoPreviewCard } from "@/components/shared/YouTubeVideoPreviewCard";
 import { fetchOutputs, type OutputItem } from "@/lib/api";
 import { fmtDate, langName, narrationName, voiceName } from "@/lib/format";
 
@@ -28,6 +26,7 @@ export function Outputs() {
   const [outputs, setOutputs] = useState<OutputItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [view, setView] = useState("library");
   const [tab, setTab] = useState("all");
   const [selectedId, setSelectedId] = useState<string | null>(params.get("id"));
   const [page, setPage] = useState(1);
@@ -43,6 +42,7 @@ export function Outputs() {
     try {
       const data = await fetchOutputs();
       setOutputs(data);
+      if (!data.length) setView("library");
       setSelectedId((current) =>
         data.some((o) => o.id === current) ? current : (data[0]?.id ?? null),
       );
@@ -93,8 +93,12 @@ export function Outputs() {
   }, [playRequest, selectedId]);
   const select = (output: OutputItem) => {
     setSelectedId(output.id);
-    if (window.innerWidth < 1280)
-      requestAnimationFrame(() =>
+    setParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set("id", output.id);
+      return next;
+    }, { replace: true });
+    requestAnimationFrame(() =>
         detailRef.current?.scrollIntoView({
           behavior: window.matchMedia("(prefers-reduced-motion: reduce)")
             .matches
@@ -132,7 +136,7 @@ export function Outputs() {
             <Button
               variant="outline"
               onClick={() => {
-                setParams({});
+                setParams((current) => { const next = new URLSearchParams(current); next.delete("q"); return next; });
                 setTab("all");
               }}
             >
@@ -175,8 +179,8 @@ export function Outputs() {
   );
   return (
     <AppShell>
-      <div className="workspace-grid">
-        <div className="workspace-main flex flex-col gap-7">
+      <div className="studio-page outputs-page">
+        <div className="workspace-main flex flex-col gap-6">
           <PageTitleBlock
             title="Outputs"
             subtitle="Your translated audio, ready to listen and share."
@@ -200,7 +204,57 @@ export function Outputs() {
               </>
             }
           />
-          <section className="min-w-0 overflow-hidden rounded-2xl border border-border bg-card">
+
+          {loading && !selected ? (
+            <div className="listening-shell" aria-label="Loading audio player"><div className="listening-card flex flex-col gap-4"><Skeleton className="h-6 w-2/3" /><Skeleton className="h-12 w-full" /></div></div>
+          ) : selected ? (
+            <section ref={detailRef} className="listening-shell" aria-label="Selected audio">
+              <div className="listening-card">
+                <div className="listening-heading">
+                  <div className="listening-art"><VideoThumbnail videoId={selected.videoId} /></div>
+                  <div className="min-w-0 flex-1">
+                    <span className="studio-eyebrow">{selected.status === "completed" ? "READY TO LISTEN" : "GENERATION FAILED"}</span>
+                    <h2 className="listening-title">{selected.title}</h2>
+                    <div className="listening-meta">
+                      <span>{langName(selected.sourceLanguage)} <ArrowRight aria-hidden="true" className="size-3" /> {langName(selected.targetLanguage)}</span>
+                      <span>{voiceName(selected.voice)}</span>
+                      <span>{selected.speechMode === "reference" ? "Reference voice" : narrationName(selected.narrationStyle)}</span>
+                      <span>{fmtDate(selected.createdAt)}</span>
+                    </div>
+                  </div>
+                  <Button onClick={() => download(selected)} disabled={selected.status !== "completed" || !selected.audioUrl} className="player-download">
+                    <Download data-icon="inline-start" /> Download {selected.audioUrl.endsWith(".wav") ? "WAV" : "MP3"}
+                  </Button>
+                </div>
+                {selected.audioUrl && selected.status === "completed" ? (
+                  <div className="listening-controls">
+                    <audio key={selected.id} ref={audioRef} src={selected.audioUrl} controls preload="metadata" aria-label={"Audio for " + selected.title}
+                      onError={() => setAudioError("This audio could not be loaded. Refresh your outputs and try again.")} />
+                    <div className="playback-rate">
+                      <label htmlFor="playback-speed">Speed</label>
+                      <select id="playback-speed" aria-label="Playback speed" key={selected.id} defaultValue="1" onChange={(e) => { if (audioRef.current) audioRef.current.playbackRate = Number(e.target.value); }}>
+                        {[0.75, 1, 1.25, 1.5, 2].map((rate) => <option key={rate} value={rate}>{rate}x</option>)}
+                      </select>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="mt-4 text-sm text-muted-foreground">Audio is not available for this output. <Link className="font-medium text-primary underline underline-offset-4" to="/">Create a new dub</Link> to try again.</p>
+                )}
+                {audioError && <p role="alert" className="mt-3 text-sm text-destructive">{audioError}</p>}
+              </div>
+            </section>
+          ) : null}
+
+          <Tabs value={view} onValueChange={setView} className="output-workspace">
+            <div className="output-workspace-heading">
+              <TabsList aria-label="Output workspace">
+                <TabsTrigger value="library"><AudioLines className="size-4" /> Audio library</TabsTrigger>
+                <TabsTrigger value="transcript" disabled={!selected}><FileText className="size-4" /> Transcript</TabsTrigger>
+              </TabsList>
+              <span className="hidden text-xs text-muted-foreground sm:block">{view === "library" ? "Select a dub to listen, read, or download." : "Read in your original or translated language."}</span>
+            </div>
+            <TabsContent value="library">
+          <section className="min-w-0 overflow-hidden" aria-label="Audio library">
             <Tabs value={tab} onValueChange={setTab}>
               <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border p-4">
                 <TabsList aria-label="Filter outputs">
@@ -215,9 +269,12 @@ export function Outputs() {
                     placeholder="Filter outputs..."
                     value={search}
                     onChange={(e) =>
-                      setParams(e.target.value ? { q: e.target.value } : {}, {
-                        replace: true,
-                      })
+                      setParams((current) => {
+                        const next = new URLSearchParams(current);
+                        if (e.target.value) next.set("q", e.target.value);
+                        else next.delete("q");
+                        return next;
+                      }, { replace: true })
                     }
                     className="pl-9"
                   />
@@ -230,155 +287,12 @@ export function Outputs() {
               ))}
             </Tabs>
           </section>
+            </TabsContent>
+            <TabsContent value="transcript">
+              {selected && <OutputTranscript key={selected.id} output={selected} />}
+            </TabsContent>
+          </Tabs>
         </div>
-        <aside
-          ref={detailRef}
-          aria-label="Output details"
-          className="workspace-detail flex flex-col gap-6 scroll-mt-5"
-        >
-          <div>
-            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-              Output details
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Preview, listen, and export.
-            </p>
-          </div>
-          {loading ? (
-            <div
-              aria-label="Loading output details"
-              className="flex flex-col gap-5"
-            >
-              <Skeleton className="aspect-video w-full" />
-              <Skeleton className="h-5 w-3/4" />
-              <Skeleton className="h-32 w-full" />
-            </div>
-          ) : error ? (
-            <p className="text-sm text-muted-foreground">
-              Your output details will appear when the library is available.
-            </p>
-          ) : selected ? (
-            <>
-              <YouTubeVideoPreviewCard
-                videoId={selected.videoId}
-                title={selected.title}
-                subtitle={"YouTube | " + fmtDate(selected.createdAt)}
-              />
-              <ProjectSummaryPanel
-                title="Language & voice"
-                items={[
-                  {
-                    icon: Globe,
-                    label: "Original",
-                    value: langName(selected.sourceLanguage),
-                  },
-                  {
-                    icon: Globe,
-                    label: "Translated",
-                    value: langName(selected.targetLanguage),
-                  },
-                  {
-                    icon: Mic2,
-                    label: "Voice",
-                    value: voiceName(selected.voice),
-                  },
-                  { icon: Mic2, label: "Delivery", value: selected.speechMode === "reference" ? "Reference sample" : narrationName(selected.narrationStyle) },
-                ]}
-              />
-              <RightPanelCard title="Audio preview">
-                {selected.audioUrl && selected.status === "completed" ? (
-                  <>
-                    <audio
-                      key={selected.id}
-                      ref={audioRef}
-                      src={selected.audioUrl}
-                      controls
-                      preload="metadata"
-                      aria-label={"Audio for " + selected.title}
-                      onError={() =>
-                        setAudioError(
-                          "This audio could not be loaded. Refresh your outputs and try again.",
-                        )
-                      }
-                    />
-                    <div className="mt-4 flex items-center justify-between gap-3">
-                      <label
-                        htmlFor="playback-speed"
-                        className="text-xs text-muted-foreground"
-                      >
-                        Playback speed
-                      </label>
-                      <select
-                        id="playback-speed"
-                        defaultValue="1"
-                        key={selected.id}
-                        className="rounded-lg border border-border bg-card px-2 py-1 text-sm"
-                        onChange={(e) => {
-                          if (audioRef.current)
-                            audioRef.current.playbackRate = Number(
-                              e.target.value,
-                            );
-                        }}
-                      >
-                        {[0.75, 1, 1.25, 1.5, 2].map((rate) => (
-                          <option key={rate} value={rate}>
-                            {rate}x
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    {audioError && (
-                      <p role="alert" className="mt-3 text-sm text-destructive">
-                        {audioError}
-                      </p>
-                    )}
-                  </>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Audio is not available for this output. Create a new dub to
-                    try again.
-                  </p>
-                )}
-              </RightPanelCard>
-              <section className="border-t border-border pt-5">
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-sm font-semibold">Export audio</h2>
-                  <span className="text-xs text-muted-foreground">
-                    {selected.audioUrl.endsWith(".wav") ? "WAV" : "MP3"} format
-                  </span>
-                </div>
-                <Button
-                  className="w-full"
-                  onClick={() => download(selected)}
-                  disabled={
-                    selected.status !== "completed" || !selected.audioUrl
-                  }
-                >
-                  <Download data-icon="inline-start" />
-                  Download {selected.audioUrl.endsWith(".wav") ? "WAV" : "MP3"}
-                </Button>
-              </section>
-              <TranscriptSnippetCard
-                original={selected.originalTranscript || ""}
-                translated={selected.translatedText || ""}
-                originalLabel={
-                  "Original (" + langName(selected.sourceLanguage) + ")"
-                }
-                translatedLabel={
-                  "Translated (" + langName(selected.targetLanguage) + ")"
-                }
-              />
-            </>
-          ) : (
-            <div className="flex min-h-60 flex-col items-center justify-center gap-3 text-center">
-              <ListMusic className="size-7 text-muted-foreground" />
-              <h2 className="text-sm font-medium">A home for your audio</h2>
-              <p className="max-w-60 text-sm text-muted-foreground">
-                Create a dub, then select it here to listen and download.
-              </p>
-            </div>
-          )}
-        </aside>
       </div>
     </AppShell>
   );

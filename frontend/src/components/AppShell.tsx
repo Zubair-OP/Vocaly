@@ -1,4 +1,5 @@
-import { type ReactNode } from "react";
+import { useLayoutEffect, type ReactNode } from "react";
+import { useLocation } from "react-router-dom";
 import { AppSidebar } from "./AppSidebar";
 
 interface AppShellProps {
@@ -6,6 +7,11 @@ interface AppShellProps {
 }
 
 export function AppShell({ children }: AppShellProps) {
+  const { pathname } = useLocation();
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
   return (
     <div className="studio-shell flex min-h-dvh w-full flex-col bg-background md:flex-row">
       <a

@@ -49,7 +49,8 @@ for (const width of [320, 375, 768, 1024, 1280, 1440])
     await expect(
       page.getByRole("heading", { name: "Give your video a new voice.", exact: true }),
     ).toBeVisible();
-    await expect(page.getByLabel("Current dub setup")).toBeVisible();
+    await expect(page.getByLabel("Current dub setup")).toHaveCount(0);
+    await expect(page.getByRole("article", { name: "Source video preview" })).toHaveCount(0);
     await expect(page.getByRole("banner")).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Recent outputs" })).toHaveCount(0);
     await expect(page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Outputs" })).toBeVisible();
@@ -69,6 +70,7 @@ for (const width of [320, 375, 768, 1024, 1280, 1440])
     await expect(
       page.getByRole("button", { name: "Download WAV", exact: true }),
     ).toBeEnabled();
+    await expect(page.getByLabel("Audio for " + outputs[0].title)).toBeInViewport({ ratio: 1 });
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
@@ -90,6 +92,7 @@ test("validation, language selection, generation and error recovery", async ({
     .click();
   await expect(page.getByRole("alert")).toContainText("valid YouTube");
   await page.getByLabel("YouTube URL").fill("https://youtu.be/dQw4w9WgXcQ");
+  await expect(page.getByRole("article", { name: "Source video preview" })).toBeVisible();
   await page.getByLabel("To (target)", { exact: true }).click();
   await page.getByRole("option", { name: "Arabic", exact: true }).click();
   await expect(page.getByLabel("Voice", { exact: true })).toContainText(
@@ -165,6 +168,13 @@ test("filters, keyboard tabs, pagination and actual playback", async ({
       .locator("audio")
       .evaluate((el: HTMLAudioElement) => el.playbackRate),
   ).toBe(1.5);
+  await page.getByRole("tab", { name: "Transcript", exact: true }).click();
+  await expect(page.getByText("Translated transcript preview.", { exact: true })).toBeVisible();
+  await expect.poll(() => page.locator("audio").evaluate((el: HTMLAudioElement) => el.paused)).toBe(false);
+  await page.getByRole("tab", { name: "Compare", exact: true }).click();
+  await expect(page.getByText("Make time for focused work every day.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Translated transcript preview.", { exact: true })).toBeVisible();
+  await page.getByRole("tab", { name: "Audio library", exact: true }).click();
   await page
     .getByLabel("Filter outputs by title or language")
     .fill("not-found");
@@ -200,4 +210,32 @@ test("empty, failed load, retry, status route and missing page", async ({
   await expect(
     page.getByRole("heading", { name: "Page not found" }),
   ).toBeVisible();
+});
+
+test("long Urdu transcripts stay readable with playback in view", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await mock(page);
+  const translatedText = "یہ آپ کی آواز کا ترجمہ ہے۔ ہر لفظ کو واضح انداز میں سنیں۔\n\n".repeat(80) + "اختتام";
+  await page.route("**/api/outputs?*", (route) => route.fulfill({ json: {
+    outputs: [{ ...outputs[0], translatedText, originalTranscript: "Make time for focused work every day.\n\n".repeat(80) + "End of transcript." }],
+  } }));
+  await page.goto("/outputs?id=0");
+  const player = page.getByLabel("Audio for " + outputs[0].title);
+  await expect(player).toBeInViewport({ ratio: 1 });
+  await page.getByRole("tab", { name: "Transcript", exact: true }).click();
+  await page.getByRole("tab", { name: "Compare", exact: true }).click();
+  const translation = page.getByRole("region", { name: "Translation · Urdu text", exact: true });
+  await expect(translation.locator("p")).toHaveAttribute("dir", "auto");
+  await expect(translation.locator("p")).toHaveAttribute("lang", "ur");
+  expect(await translation.locator("p").evaluate(el => getComputedStyle(el).direction)).toBe("rtl");
+  await translation.focus();
+  await page.keyboard.press("Control+End");
+  await expect.poll(() => translation.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
+  await expect(player).toBeInViewport({ ratio: 1 });
+  await expect(translation).toContainText("اختتام");
+  await page.screenshot({ path: "test-results/transcript-compare.png", fullPage: true });
+  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Create a dub" }).click();
+  await page.getByRole("button", { name: "Generate audio", exact: true }).scrollIntoViewIfNeeded();
+  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Outputs" }).click();
+  await expect(player).toBeInViewport({ ratio: 1 });
 });

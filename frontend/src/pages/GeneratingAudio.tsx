@@ -1,12 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { AudioLines, Globe, Mic2, ArrowRight } from "lucide-react";
+import { AudioLines, ArrowRight } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageTitleBlock } from "@/components/shared/PageTitleBlock";
-import { ProjectSummaryPanel } from "@/components/shared/ProjectSummaryPanel";
-import { YouTubeVideoPreviewCard } from "@/components/shared/YouTubeVideoPreviewCard";
 import { StepProgress } from "@/components/shared/StepProgress";
 import { fetchOutput, type OutputItem } from "@/lib/api";
 import { langName, voiceName } from "@/lib/format";
@@ -41,7 +39,7 @@ export function GeneratingAudio() {
   }, [id, retry]);
   return (
     <AppShell>
-      <div className="workspace-grid">
+      <div className="studio-page create-page">
         <div className="workspace-main flex flex-col gap-7">
           <PageTitleBlock
             title={
@@ -84,6 +82,7 @@ export function GeneratingAudio() {
             ) : output ? (
               <div className="flex flex-col gap-6">
                 <h2 className="text-lg font-semibold">{output.title}</h2>
+                <p className="text-sm text-muted-foreground">{langName(output.sourceLanguage)} ? {langName(output.targetLanguage)} ? {voiceName(output.voice)}</p>
                 {output.status === "completed" ? (
                   <>
                     <StepProgress
@@ -134,45 +133,7 @@ export function GeneratingAudio() {
             )}
           </section>
         </div>
-        <aside
-          className="workspace-detail flex flex-col gap-6"
-          aria-label="Project details"
-        >
-          <h2 className="text-sm font-semibold">Project details</h2>
-          {output ? (
-            <>
-              <YouTubeVideoPreviewCard
-                videoId={output.videoId}
-                title={output.title}
-              />
-              <ProjectSummaryPanel
-                title="Language & voice"
-                items={[
-                  {
-                    icon: Globe,
-                    label: "Source",
-                    value: langName(output.sourceLanguage),
-                  },
-                  {
-                    icon: Globe,
-                    label: "Target",
-                    value: langName(output.targetLanguage),
-                  },
-                  {
-                    icon: Mic2,
-                    label: "Voice",
-                    value: voiceName(output.voice),
-                  },
-                ]}
-              />
-            </>
-          ) : (
-            <p className="text-sm leading-relaxed text-muted-foreground">
-              Your video, language, and voice details will appear here when an
-              output is available.
-            </p>
-          )}
-        </aside>
+
       </div>
     </AppShell>
   );
