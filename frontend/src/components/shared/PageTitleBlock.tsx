@@ -24,10 +24,11 @@ export function PageTitleBlock({
   return (
     <div className={cn("animate-fade-in", className)}>
       {backAction}
+      <span className="studio-eyebrow mb-4 inline-flex">VOCALLY / AUDIO STUDIO</span>
 
       <div className="flex flex-wrap items-start justify-between gap-5">
         <div className="min-w-0">
-          <h1 className="text-[32px] font-semibold leading-tight tracking-[-0.035em] text-foreground lg:text-[40px]">
+          <h1 className="text-[32px] font-semibold leading-tight tracking-[-0.035em] text-foreground lg:text-[46px]">
             {title}
           </h1>
           {subtitle && (

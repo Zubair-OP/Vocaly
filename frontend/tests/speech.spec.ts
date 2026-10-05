@@ -34,7 +34,7 @@ test("reference mode requires upload and speaker permission", async ({ page }) =
   await expect(page.getByRole("alert")).toContainText("Choose another target language");
   await page.getByLabel("To (target)", { exact: true }).click();
   await page.getByRole("option", { name: "English", exact: true }).click();
-  await page.getByRole("button", { name: "Fetch Transcript & Generate Audio", exact: true }).click();
+  await page.getByRole("button", { name: "Generate audio", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("confirm speaker permission");
 });
 
@@ -62,6 +62,6 @@ test("reference upload and generation complete through the form", async ({ page 
   await page.getByRole("option", { name: "Reference voice (experimental)", exact: true }).click();
   await page.getByLabel("Speaker reference WAV", { exact: true }).setInputFiles({ name: "speaker.wav", mimeType: "audio/wav", buffer: Buffer.from("test reference") });
   await page.getByRole("checkbox", { name: "I have the speaker’s permission to use this voice." }).check();
-  await page.getByRole("button", { name: "Fetch Transcript & Generate Audio", exact: true }).click();
+  await page.getByRole("button", { name: "Generate audio", exact: true }).click();
   await expect(page).toHaveURL(/\/outputs$/);
 });

@@ -1,6 +1,5 @@
 import { type ReactNode } from "react";
 import { AppSidebar } from "./AppSidebar";
-import { TopHeader } from "./TopHeader";
 
 interface AppShellProps {
   children: ReactNode;
@@ -8,7 +7,7 @@ interface AppShellProps {
 
 export function AppShell({ children }: AppShellProps) {
   return (
-    <div className="flex min-h-dvh w-full bg-background">
+    <div className="studio-shell flex min-h-dvh w-full flex-col bg-background md:flex-row">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:bg-card focus:p-3"
@@ -17,7 +16,6 @@ export function AppShell({ children }: AppShellProps) {
       </a>
       <AppSidebar />
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopHeader />
         <main
           id="main-content"
           tabIndex={-1}

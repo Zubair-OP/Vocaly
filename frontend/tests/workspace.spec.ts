@@ -47,9 +47,12 @@ for (const width of [320, 375, 768, 1024, 1280, 1440])
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto("/");
     await expect(
-      page.getByRole("heading", { name: "Quick Dub", exact: true }),
+      page.getByRole("heading", { name: "Give your video a new voice.", exact: true }),
     ).toBeVisible();
     await expect(page.getByLabel("Current dub setup")).toBeVisible();
+    await expect(page.getByRole("banner")).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Recent outputs" })).toHaveCount(0);
+    await expect(page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Outputs" })).toBeVisible();
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
@@ -83,7 +86,7 @@ test("validation, language selection, generation and error recovery", async ({
   await mock(page);
   await page.goto("/");
   await page
-    .getByRole("button", { name: "Fetch Transcript & Generate Audio" })
+    .getByRole("button", { name: "Generate audio" })
     .click();
   await expect(page.getByRole("alert")).toContainText("valid YouTube");
   await page.getByLabel("YouTube URL").fill("https://youtu.be/dQw4w9WgXcQ");
@@ -106,7 +109,7 @@ test("validation, language selection, generation and error recovery", async ({
     route.fulfill({ status: 500, json: { detail: "Private backend error" } }),
   );
   await page
-    .getByRole("button", { name: "Fetch Transcript & Generate Audio" })
+    .getByRole("button", { name: "Generate audio" })
     .click();
   await expect(page.getByRole("alert")).toContainText("could not");
   await page.waitForTimeout(1800);
@@ -120,7 +123,7 @@ test("validation, language selection, generation and error recovery", async ({
     return route.fulfill({ json: { status: "completed", output: outputs[0] } });
   });
   await page
-    .getByRole("button", { name: "Fetch Transcript & Generate Audio" })
+    .getByRole("button", { name: "Generate audio" })
     .click();
   await expect(page).toHaveURL(/outputs/);
 });

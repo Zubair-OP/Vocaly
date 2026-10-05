@@ -1,53 +1,12 @@
 import { NavLink } from "react-router-dom";
-import { AudioLines, Plus, ListMusic } from "lucide-react";
+import { AudioLines, Plus, ListMusic, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 export function AppSidebar() {
-  return (
-    <aside className="hidden w-[220px] shrink-0 flex-col border-r border-border bg-card md:flex">
-      <NavLink
-        to="/"
-        className="flex h-[76px] items-center gap-2.5 px-6"
-        aria-label="Vocally home"
-      >
-        <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-white">
-          <AudioLines className="size-5" />
-        </span>
-        <span className="text-xl font-semibold tracking-tight">
-          Vocally<span className="text-primary">.</span>
-        </span>
-      </NavLink>
-      <div className="px-6 pb-3 pt-7 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-        Workspace
-      </div>
-      <nav aria-label="Main navigation" className="flex flex-col gap-1 px-3">
-        {[
-          { to: "/", label: "New dub", icon: Plus },
-          { to: "/outputs", label: "Outputs", icon: ListMusic },
-        ].map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end
-            className={({ isActive }) =>
-              cn(
-                "flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-accent text-accent-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
-              )
-            }
-          >
-            <Icon className="size-[18px]" />
-            {label}
-          </NavLink>
-        ))}
-      </nav>
-      <div className="mt-auto p-6">
-        <p className="text-sm font-medium">Your content. More languages.</p>
-        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-          A focused space for every dub.
-        </p>
-      </div>
-    </aside>
-  );
+  return <aside className="studio-sidebar flex shrink-0 flex-col md:w-[232px]">
+    <NavLink to="/" className="studio-brand" aria-label="Vocally home"><span className="brand-mark"><AudioLines strokeWidth={1.4} /></span><span>vocally<span className="text-violet-300">.</span></span></NavLink>
+    <div className="sidebar-label hidden md:block">YOUR WORKSPACE</div>
+    <nav aria-label="Main navigation" className="flex gap-2 md:flex-col">{[{to:"/",label:"Create a dub",icon:Plus},{to:"/outputs",label:"Outputs",icon:ListMusic}].map(({to,label,icon:Icon})=><NavLink key={to} to={to} end className={({isActive})=>cn("studio-nav-link",isActive&&"is-active")}><Icon className="size-[18px]" strokeWidth={1.4}/>{label}<ArrowUpRight className="nav-arrow ml-auto size-4" strokeWidth={1.4}/></NavLink>)}</nav>
+    <div className="sidebar-note mt-auto hidden md:block"><div className="sidebar-wave" aria-hidden="true">{[12,24,17,36,26,44,31,20,34,16,26,12].map((height,i)=><span key={i} style={{height}} />)}</div><p>Your voice.<br/>A world of possibilities.</p><span>Create something worth hearing.</span></div>
+    <div className="sidebar-footer hidden md:flex"><span className="size-1.5 rounded-full bg-violet-300"/> VOCALLY STUDIO <span className="ml-auto">V.01</span></div>
+  </aside>;
 }

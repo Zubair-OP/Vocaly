@@ -1,19 +1,10 @@
-import { VideoThumbnail } from "@/components/shared/VideoThumbnail";
 import { SpeechControls, type SpeechSettings } from "@/components/SpeechControls";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppShell } from "@/components/AppShell";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
-import {
-  Empty,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-  EmptyDescription,
-} from "@/components/ui/empty";
 import { Button } from "@/components/ui/button";
 
 import {
@@ -29,18 +20,15 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PageTitleBlock } from "@/components/shared/PageTitleBlock";
 import { ProjectSummaryPanel } from "@/components/shared/ProjectSummaryPanel";
 import { YouTubeVideoPreviewCard } from "@/components/shared/YouTubeVideoPreviewCard";
-import { StatusBadge } from "@/components/shared/StatusBadge";
 import { StepProgress } from "@/components/shared/StepProgress";
 
 import {
   fetchTranscript,
-  fetchOutputs,
   generateAudio,
   generationErrorMessage,
   fetchVoices, uploadSpeakerReference, type VoiceOption,
-  type OutputItem,
 } from "@/lib/api";
-import { LANGUAGES, VOICES, langName, narrationName, relativeTime } from "@/lib/format";
+import { LANGUAGES, VOICES, langName, narrationName } from "@/lib/format";
 import {
   Link2,
   Upload,
@@ -72,35 +60,6 @@ const PIPELINE_STEPS = [
 
 const STAGE_LABELS = ["Fetching captions…", "Translating…", "Generating audio…"];
 
-// ── recent outputs (loaded from MongoDB) ───────────────────────────────
-
-interface RecentItem {
-  id: string;
-  videoId: string | null;
-  title: string;
-  source: string;
-  from: string;
-  to: string;
-  duration: string;
-  status: OutputItem["status"];
-  updatedAt: string;
-}
-
-function toRecent(output: OutputItem): RecentItem {
-  return {
-    id: output.id,
-    videoId: output.videoId ?? null,
-    title: output.title,
-    source: "YouTube Video",
-    from: langName(output.sourceLanguage),
-    to: langName(output.targetLanguage),
-    duration: "—",
-    status: output.status,
-    updatedAt: relativeTime(output.createdAt),
-  };
-}
-
-// ── helpers ────────────────────────────────────────────────────────────
 
 function extractVideoId(value: string): string | null {
   try {
@@ -136,11 +95,7 @@ export function QuickDub() {
   const [step, setStep] = useState<Step>("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [videoTitle, setVideoTitle] = useState("");
-  const [recent, setRecent] = useState<RecentItem[]>([]);
   const [stage, setStage] = useState(0);
-  const [recentLoading, setRecentLoading] = useState(true);
-  const [recentError, setRecentError] = useState(false);
-  const [reload, setReload] = useState(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const mounted = useRef(true);
   useEffect(() => {
@@ -150,25 +105,6 @@ export function QuickDub() {
       timers.current.forEach(clearTimeout);
     };
   }, []);
-
-  useEffect(() => {
-    let active = true;
-    setRecentLoading(true);
-    setRecentError(false);
-    fetchOutputs(3)
-      .then((outputs) => {
-        if (active) setRecent(outputs.slice(0, 3).map(toRecent));
-      })
-      .catch(() => {
-        if (active) setRecentError(true);
-      })
-      .finally(() => {
-        if (active) setRecentLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [reload]);
 
   useEffect(() => {
     let active = true;
@@ -285,10 +221,11 @@ export function QuickDub() {
       <div className="workspace-grid">
         <div className="workspace-main flex flex-col gap-7">
           <PageTitleBlock
-            title="Quick Dub"
-            subtitle="Turn a YouTube video into audio in another language."
+            title="Give your video a new voice."
+            subtitle="One video. More possibilities. Create a voice track in the language of your next audience."
           />
-          <section className="overflow-hidden rounded-2xl border border-border bg-card">
+          <section className="creation-shell">
+            <div className="creation-intro"><span className="studio-eyebrow">01 / CREATE A DUB</span><h2>Start with your video</h2><p>Add a YouTube link, then make it sound like you.</p></div>
             <Tabs defaultValue="youtube" className="p-5 sm:p-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <TabsList aria-label="Video source">
@@ -466,8 +403,8 @@ export function QuickDub() {
                           </>
                         ) : (
                           <>
-                            Fetch Transcript &amp; Generate Audio
-                            <ArrowRight data-icon="inline-end" />
+                            Generate audio
+                            <span className="cta-icon"><ArrowRight data-icon="inline-end" /></span>
                           </>
                         )}
                       </Button>
@@ -541,95 +478,6 @@ export function QuickDub() {
                 </li>
               ))}
             </ol>
-          </section>
-          <section
-            className="overflow-hidden rounded-2xl border border-border bg-card"
-            aria-labelledby="recent-outputs"
-          >
-            <div className="flex items-center justify-between border-b border-border px-5 py-4">
-              <h2 id="recent-outputs" className="text-base font-semibold">
-                Recent outputs
-              </h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate("/outputs")}
-              >
-                View all
-                <ArrowRight />
-              </Button>
-            </div>
-            {recentLoading ? (
-              <div
-                aria-label="Loading recent outputs"
-                className="flex flex-col gap-4 p-5"
-              >
-                {[0, 1, 2].map((i) => (
-                  <Skeleton key={i} className="h-12 w-full" />
-                ))}
-              </div>
-            ) : recentError ? (
-              <div className="flex flex-col items-center gap-3 p-6">
-                <p className="text-sm text-muted-foreground">
-                  Recent outputs could not be loaded.
-                </p>
-                <Button
-                  variant="outline"
-                  onClick={() => setReload((n) => n + 1)}
-                >
-                  Try again
-                </Button>
-              </div>
-            ) : recent.length === 0 ? (
-              <Empty>
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <FileAudio />
-                  </EmptyMedia>
-                  <EmptyTitle>Your first dub starts here</EmptyTitle>
-                  <EmptyDescription>
-                    Add a video above. Your translated audio will be saved here.
-                  </EmptyDescription>
-                </EmptyHeader>
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    document.getElementById("youtube-url")?.focus()
-                  }
-                >
-                  Add a video
-                </Button>
-              </Empty>
-            ) : (
-              <div className="divide-y divide-border">
-                {recent.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => navigate("/outputs?id=" + item.id)}
-                    className="flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-background"
-                  >
-                    <div className="flex h-10 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-accent">
-                      <VideoThumbnail videoId={item.videoId} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">
-                        {item.title}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {item.from} &rarr; {item.to}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1">
-                      <StatusBadge status={item.status} />
-                      <span className="hidden text-xs text-muted-foreground sm:block">
-                        {item.updatedAt}
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
           </section>
         </div>
         <aside

@@ -7,16 +7,16 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['Plus Jakarta Sans', 'system-ui', '-apple-system', 'sans-serif'],
       },
       colors: {
-        border: '#E5EAF2',
-        input: '#E5EAF2',
-        ring: '#1D9BF0',
-        background: '#F8FAFC',
+        border: '#E9E9F0',
+        input: '#E9E9F0',
+        ring: '#5254C7',
+        background: '#F5F5F8',
         foreground: '#0F172A',
         primary: {
-          DEFAULT: '#0875C1',
+          DEFAULT: '#5254C7',
           foreground: '#FFFFFF',
         },
         secondary: {
@@ -32,23 +32,23 @@ export default {
           foreground: '#64748B',
         },
         accent: {
-          DEFAULT: '#EEF7FF',
-          foreground: '#0875C1',
+          DEFAULT: '#EEEDFC',
+          foreground: '#5254C7',
         },
         card: {
           DEFAULT: '#FFFFFF',
           foreground: '#0F172A',
         },
         // Design spec extra tokens
-        'vocally-blue': '#1D9BF0',
+        'vocally-blue': '#5254C7',
         'vocally-blue-hover': '#178BFF',
-        'vocally-blue-light': '#EEF7FF',
+        'vocally-blue-light': '#EEEDFC',
         'vocally-green': '#16A34A',
         'vocally-green-light': '#EAFBF0',
         'vocally-slate': '#64748B',
         'vocally-muted': '#94A3B8',
-        'vocally-border': '#E5EAF2',
-        'vocally-bg': '#F8FAFC',
+        'vocally-border': '#E9E9F0',
+        'vocally-bg': '#F5F5F8',
       },
       borderRadius: {
         '2xl': '16px',
