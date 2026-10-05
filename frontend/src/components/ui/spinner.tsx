@@ -9,7 +9,7 @@ interface SpinnerProps {
 export function Spinner({ className, size = 20 }: SpinnerProps) {
   return (
     <Loader2
-      className={cn("animate-spin text-primary", className)}
+      className={cn("animate-spin text-accent-foreground", className)}
       size={size}
     />
   )

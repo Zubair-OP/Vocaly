@@ -247,7 +247,7 @@ export function OutputsTable({
                   onClick={() => onSelect(output)}
                   className={cn(
                     "cursor-pointer",
-                    isSelected && "hover:bg-[#EAF6FF]",
+                    isSelected && "hover:bg-accent",
                   )}
                 >
                   <TableCell
@@ -269,7 +269,7 @@ export function OutputsTable({
                             e.stopPropagation();
                             onSelect(output);
                           }}
-                          className="block max-w-full truncate text-left text-sm font-medium leading-snug text-foreground hover:text-primary"
+                          className="block max-w-full truncate text-left text-sm font-medium leading-snug text-foreground hover:text-accent-foreground"
                         >
                           {output.title}
                         </button>
@@ -347,7 +347,7 @@ export function OutputsTable({
 /** Small `+ New Dub` style action used above tables and in empty states. */
 export function CreateDubButton({ children }: { children?: ReactNode }) {
   return (
-    <Button className="h-10 rounded-xl bg-primary px-4 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:bg-[#178BFF]">
+    <Button className="h-10 rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm transition-all duration-200 hover:bg-primary-hover">
       <Plus className="mr-2 h-4 w-4" />
       {children ?? "New Dub"}
     </Button>

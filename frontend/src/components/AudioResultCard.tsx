@@ -33,7 +33,7 @@ export function AudioResultCard({ output }: AudioResultCardProps) {
         <CardTitle className="text-base leading-snug">{output.title}</CardTitle>
         <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
           <span>{sourceName}</span>
-          <span className="text-primary">→</span>
+          <span className="text-accent-foreground">→</span>
           <span>{targetName}</span>
           <span className="ml-auto text-xs">
             {output.status === "completed" ? (

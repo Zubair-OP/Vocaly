@@ -40,7 +40,7 @@ export function ExportOptionsCard({
               className={cn(
                 "flex-1 rounded-xl border py-2 text-xs font-semibold uppercase tracking-wide transition-all duration-200",
                 isActive
-                  ? "border-[#1D9BF0] bg-accent text-accent-foreground shadow-[0_0_0_3px_rgba(29,155,240,0.10)]"
+                  ? "border-primary bg-accent text-accent-foreground ring-2 ring-primary/15"
                   : "border-border bg-white text-muted-foreground hover:border-[#D7E3F2] hover:bg-background hover:text-foreground"
               )}
             >
@@ -54,7 +54,7 @@ export function ExportOptionsCard({
         type="button"
         onClick={onDownload}
         disabled={disabled}
-        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-[#178BFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D9BF0]/40 disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
       >
         Download {value.toUpperCase()}
       </button>

@@ -10,7 +10,7 @@ export function TopHeader() {
     <header className="border-b border-border bg-card">
       <div className="flex h-[76px] items-center justify-between gap-4 px-4 sm:px-8">
         <AudioLines
-          className="size-6 shrink-0 text-primary md:hidden"
+          className="size-6 shrink-0 text-accent-foreground md:hidden"
           aria-label="Vocally"
         />
         <form

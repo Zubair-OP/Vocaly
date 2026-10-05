@@ -82,7 +82,7 @@ interface ProcessingLogProps {
 /** Shared chronological log with a subtle timeline rail. */
 export function ProcessingLog({ entries, className, maxHeight = "h-64" }: ProcessingLogProps) {
   const dotColor = (type: LogEntry["type"]) =>
-    type === "success" ? "#16A34A" : type === "active" ? "#1D9BF0" : "#94A3B8"
+    type === "success" ? "#16A34A" : type === "active" ? "rgb(var(--brand-text))" : "#94A3B8"
 
   return (
     <ScrollArea className={cn(maxHeight, className)}>

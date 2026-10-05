@@ -15,8 +15,8 @@ export function StatMiniCard({
   icon: Icon,
   label,
   value,
-  color = "#EEF7FF",
-  iconColor = "#1D9BF0",
+  color = "rgb(var(--brand-soft))",
+  iconColor = "rgb(var(--brand-text))",
   className,
 }: StatMiniCardProps) {
   return (

@@ -32,7 +32,7 @@ export function TranscriptSnippetCard({
           </p>
         </div>
 
-        <div className="rounded-xl border border-[#D8EBFF] bg-accent p-3">
+        <div className="rounded-xl border border-primary/25 bg-accent p-3">
           <p className="mb-2 text-xs font-medium text-accent-foreground/70">
             {translatedLabel}
           </p>

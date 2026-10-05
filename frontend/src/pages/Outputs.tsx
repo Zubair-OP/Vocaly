@@ -213,7 +213,7 @@ export function Outputs() {
                       playRequest={playTarget === selected.id ? playRequest : 0} />
                   </div>
                 ) : (
-                  <p className="mt-4 text-sm text-muted-foreground">Audio is not available for this output. <Link className="font-medium text-primary underline underline-offset-4" to="/">Create a new dub</Link> to try again.</p>
+                  <p className="mt-4 text-sm text-muted-foreground">Audio is not available for this output. <Link className="font-medium text-accent-foreground underline underline-offset-4" to="/">Create a new dub</Link> to try again.</p>
                 )}
               </div>
             </section>

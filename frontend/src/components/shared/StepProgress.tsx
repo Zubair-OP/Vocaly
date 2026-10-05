@@ -20,7 +20,7 @@ export function StepProgress({ steps, activeIndex, complete = false, status, cla
   return (
     <div className={cn("generation-progress", className)}>
       <div className="generation-progress-heading" role="status" aria-live="polite" aria-atomic="true">
-        {complete ? <Check className="size-4 text-primary" aria-hidden="true" /> : <Loader2 className="size-4 animate-spin text-primary" aria-hidden="true" />}
+        {complete ? <Check className="size-4 text-accent-foreground" aria-hidden="true" /> : <Loader2 className="size-4 animate-spin text-accent-foreground" aria-hidden="true" />}
         <span>{status || (complete ? "Your audio is ready" : "Creating your dub")}</span>
       </div>
       <ol className="generation-segments" style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}>

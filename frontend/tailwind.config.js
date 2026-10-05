@@ -12,12 +12,13 @@ export default {
       colors: {
         border: '#E9E9F0',
         input: '#E9E9F0',
-        ring: '#5254C7',
+        ring: 'rgb(var(--brand-focus) / <alpha-value>)',
         background: '#F5F5F8',
         foreground: '#0F172A',
         primary: {
-          DEFAULT: '#5254C7',
-          foreground: '#FFFFFF',
+          DEFAULT: 'rgb(var(--brand) / <alpha-value>)',
+          foreground: 'rgb(var(--brand-ink) / <alpha-value>)',
+          hover: 'rgb(var(--brand-hover) / <alpha-value>)',
         },
         secondary: {
           DEFAULT: '#F1F5F9',
@@ -32,17 +33,17 @@ export default {
           foreground: '#64748B',
         },
         accent: {
-          DEFAULT: '#EEEDFC',
-          foreground: '#5254C7',
+          DEFAULT: 'rgb(var(--brand-soft) / <alpha-value>)',
+          foreground: 'rgb(var(--brand-text) / <alpha-value>)',
         },
         card: {
           DEFAULT: '#FFFFFF',
           foreground: '#0F172A',
         },
         // Design spec extra tokens
-        'vocally-blue': '#5254C7',
-        'vocally-blue-hover': '#178BFF',
-        'vocally-blue-light': '#EEEDFC',
+        'vocally-blue': 'rgb(var(--brand) / <alpha-value>)',
+        'vocally-blue-hover': 'rgb(var(--brand-hover) / <alpha-value>)',
+        'vocally-blue-light': 'rgb(var(--brand-soft) / <alpha-value>)',
         'vocally-green': '#16A34A',
         'vocally-green-light': '#EAFBF0',
         'vocally-slate': '#64748B',

@@ -33,6 +33,9 @@ function AudioPlayerSource({ src, label, autoPlay = false, playRequest = 0 }: Au
     const audio = audioRef.current!;
     const canvas = canvasRef.current!;
     const drawing = canvas.getContext("2d");
+    const palette = getComputedStyle(canvas);
+    const playedColor = palette.color;
+    const unplayedColor = palette.getPropertyValue("--waveform-muted").trim();
     const abort = new AbortController();
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
     let disposed = false;
@@ -70,7 +73,7 @@ function AudioPlayerSource({ src, label, autoPlay = false, playRequest = 0 }: Au
           local = Math.sqrt(local / Math.max(1, end - start));
         }
         const barHeight = Math.min(54, Math.max(3, base * 30 * (live ? 0.8 + smoothed : 1) + local * 45));
-        drawing.fillStyle = index / bars < progress ? "#5854c7" : "#cbc9dc";
+        drawing.fillStyle = index / bars < progress ? playedColor : unplayedColor;
         drawing.beginPath();
         drawing.roundRect(index * width / bars, (height - barHeight) / 2, 2.5, barHeight, 1.25);
         drawing.fill();

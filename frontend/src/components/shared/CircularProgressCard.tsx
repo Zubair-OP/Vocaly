@@ -47,7 +47,7 @@ export function CircularProgressCard({
             cy={size / 2}
             r={radius}
             fill="none"
-            stroke="#EEF5FF"
+            stroke="rgb(var(--brand-soft))"
             strokeWidth={thickness}
           />
           <circle
@@ -55,7 +55,7 @@ export function CircularProgressCard({
             cy={size / 2}
             r={radius}
             fill="none"
-            stroke="#1D9BF0"
+            stroke="rgb(var(--brand))"
             strokeWidth={thickness}
             strokeLinecap="round"
             strokeDasharray={circumference}
