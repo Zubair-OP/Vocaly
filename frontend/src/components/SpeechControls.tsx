@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { AudioPlayer } from "@/components/AudioPlayer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -72,7 +73,7 @@ export function SpeechControls({ language, voice, disabled, referenceAvailable, 
         <p className="text-xs text-muted-foreground">Adjusts pace and pitch; does not copy the original speaker’s emotion.</p>
       </Field>
       <Button type="button" variant="outline" disabled={disabled || loading || !voice} onClick={() => void preview()}>{loading ? "Creating preview..." : "Preview voice"}</Button>
-      {previewUrl && <audio key={previewUrl} controls autoPlay src={previewUrl} aria-label="Voice preview" className="w-full" />}
+      {previewUrl && <AudioPlayer key={previewUrl} autoPlay src={previewUrl} label="Voice preview" />}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     </> : <Field className="gap-2">
       <FieldLabel htmlFor="speaker-reference">Speaker reference WAV</FieldLabel>

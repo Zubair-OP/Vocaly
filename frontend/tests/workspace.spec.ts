@@ -162,7 +162,8 @@ test("filters, keyboard tabs, pagination and actual playback", async ({
       page.locator("audio").evaluate((el: HTMLAudioElement) => el.paused),
     )
     .toBe(false);
-  await page.getByLabel("Playback speed").selectOption("1.5");
+  await page.getByRole("combobox", { name: "Playback speed" }).click();
+  await page.getByRole("option", { name: /^1\.5/ }).click();
   expect(
     await page
       .locator("audio")

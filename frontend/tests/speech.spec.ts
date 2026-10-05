@@ -19,7 +19,7 @@ test("ten languages, preview and narration style reach the API", async ({ page }
   await page.getByLabel("Narration style", { exact: true }).click();
   await page.getByRole("option", { name: "Motivational", exact: true }).click();
   await page.getByRole("button", { name: "Preview voice", exact: true }).click();
-  await expect(page.getByLabel("Voice preview", { exact: true })).toHaveAttribute("src", "/preview.mp3");
+  await expect(page.getByRole("group", { name: "Voice preview", exact: true }).locator("audio")).toHaveAttribute("src", "/preview.mp3");
   await page.getByLabel("Narration style", { exact: true }).click();
   await page.getByRole("option", { name: "Calm", exact: true }).click();
   await expect(page.getByLabel("Voice preview", { exact: true })).toHaveCount(0);

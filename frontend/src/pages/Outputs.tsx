@@ -9,6 +9,7 @@ import {
   Download,
   Plus,
 } from "lucide-react";
+import { AudioPlayer } from "@/components/AudioPlayer";
 import { OutputTranscript } from "@/components/OutputTranscript";
 import { VideoThumbnail } from "@/components/shared/VideoThumbnail";
 import { AppShell } from "@/components/AppShell";
@@ -31,9 +32,7 @@ export function Outputs() {
   const [selectedId, setSelectedId] = useState<string | null>(params.get("id"));
   const [page, setPage] = useState(1);
   const [playRequest, setPlayRequest] = useState(0);
-  const [audioError, setAudioError] = useState("");
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const pendingPlayId = useRef<string | null>(null);
+  const [playTarget, setPlayTarget] = useState<string | null>(null);
   const detailRef = useRef<HTMLElement>(null);
   const search = params.get("q") || "";
   const load = useCallback(async () => {
@@ -72,26 +71,8 @@ export function Outputs() {
   );
   const pages = Math.max(1, Math.ceil(filtered.length / 8));
   const currentPage = Math.min(page, pages);
-  useEffect(() => {
-    setAudioError("");
-  }, [selectedId]);
-  useEffect(() => {
-    if (
-      playRequest &&
-      pendingPlayId.current === selectedId &&
-      audioRef.current
-    ) {
-      pendingPlayId.current = null;
-      void audioRef.current
-        .play()
-        .catch(() =>
-          setAudioError(
-            "Playback could not start. Use the player to try again.",
-          ),
-        );
-    }
-  }, [playRequest, selectedId]);
   const select = (output: OutputItem) => {
+    setPlayTarget(null);
     setSelectedId(output.id);
     setParams((current) => {
       const next = new URLSearchParams(current);
@@ -126,7 +107,7 @@ export function Outputs() {
         onSelect={select}
         onPlay={(output) => {
           select(output);
-          pendingPlayId.current = output.id;
+          setPlayTarget(output.id);
           setPlayRequest((n) => n + 1);
         }}
         onDownload={download}
@@ -227,20 +208,13 @@ export function Outputs() {
                   </Button>
                 </div>
                 {selected.audioUrl && selected.status === "completed" ? (
-                  <div className="listening-controls">
-                    <audio key={selected.id} ref={audioRef} src={selected.audioUrl} controls preload="metadata" aria-label={"Audio for " + selected.title}
-                      onError={() => setAudioError("This audio could not be loaded. Refresh your outputs and try again.")} />
-                    <div className="playback-rate">
-                      <label htmlFor="playback-speed">Speed</label>
-                      <select id="playback-speed" aria-label="Playback speed" key={selected.id} defaultValue="1" onChange={(e) => { if (audioRef.current) audioRef.current.playbackRate = Number(e.target.value); }}>
-                        {[0.75, 1, 1.25, 1.5, 2].map((rate) => <option key={rate} value={rate}>{rate}x</option>)}
-                      </select>
-                    </div>
+                  <div className="mt-5">
+                    <AudioPlayer key={selected.id} src={selected.audioUrl} label={"Audio for " + selected.title}
+                      playRequest={playTarget === selected.id ? playRequest : 0} />
                   </div>
                 ) : (
                   <p className="mt-4 text-sm text-muted-foreground">Audio is not available for this output. <Link className="font-medium text-primary underline underline-offset-4" to="/">Create a new dub</Link> to try again.</p>
                 )}
-                {audioError && <p role="alert" className="mt-3 text-sm text-destructive">{audioError}</p>}
               </div>
             </section>
           ) : null}

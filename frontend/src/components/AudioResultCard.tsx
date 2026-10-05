@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { AudioPlayer } from "@/components/AudioPlayer";
 import { Button } from "@/components/ui/button"
 import { type OutputItem } from "@/lib/api"
 import { langName } from "@/lib/format"
@@ -49,10 +50,7 @@ export function AudioResultCard({ output }: AudioResultCardProps) {
       <CardContent className="space-y-4">
         {/* Audio Player */}
         {output.status === "completed" && (
-          <audio controls preload="metadata" className="w-full">
-            <source src={output.audioUrl} type="audio/mpeg" />
-            Your browser does not support the audio element.
-          </audio>
+          <AudioPlayer src={output.audioUrl} label={"Audio for " + output.title} />
         )}
 
         {/* Download Button */}

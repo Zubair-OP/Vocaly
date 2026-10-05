@@ -363,3 +363,29 @@ button:not([role=tab]):active { transform:scale(.98); }
   .progress-fill, .progress-activity, .generation-dock > div { transition: none; }
   .progress-track[data-state=indeterminate] .progress-activity { animation: none; transform: scaleX(.35); }
 }
+
+/* One waveform player for generated tracks and voice previews. */
+.audio-player { min-width: 0; padding: 10px 14px; border-radius: 14px; background: #f7f7fb; }
+.audio-player-main { display: flex; align-items: center; gap: 16px; }
+.audio-player .audio-toggle { width: 44px; height: 44px; flex-shrink: 0; border-radius: 50%; box-shadow: none; }
+.audio-player .audio-toggle svg { width: 17px; height: 17px; }
+.audio-waveform { position: relative; flex: 1; min-width: 0; height: 60px; border-radius: 6px; }
+.audio-waveform canvas { display: block; width: 100%; height: 60px; }
+.audio-waveform .waveform-seek { position: absolute; inset: 0; margin: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.audio-waveform:focus-within { outline: 2px solid #5854c7; outline-offset: 3px; }
+.audio-player-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-left: 60px; }
+.audio-time { flex-shrink: 0; font-size: 11px; font-variant-numeric: tabular-nums; color: #51516c; }
+.audio-time > span { color: #85849b; }
+.audio-player-options { display: flex; align-items: center; gap: 4px; }
+.audio-player-options > button { width: 32px; height: 32px; color: #77768b; }
+.audio-player-options .audio-speed { width: 78px; height: 32px; min-width: 0; padding: 0 9px; border-radius: 8px; border-color: #e6e5ef; background: #fff; box-shadow: none; color: #51516c; font-size: 12px; }
+.voice-settings-grid > .audio-player { grid-column: 1 / -1; }
+.creation-section .audio-player-options .audio-speed { height: 32px; }
+@media (max-width: 539px) {
+  .audio-player { padding: 8px 10px; }
+  .audio-player-main { gap: 10px; }
+  .audio-player .audio-toggle { width: 38px; height: 38px; }
+  .audio-player-toolbar { padding-left: 0; gap: 6px; }
+  .audio-player-options { gap: 0; }
+  .audio-player-options .audio-speed { width: 68px; }
+}
