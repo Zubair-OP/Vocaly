@@ -7,6 +7,22 @@ import re
 # pyrefly: ignore [missing-import]
 import httpx
 from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api._errors import (
+    NoTranscriptFound, TranscriptsDisabled, RequestBlocked, VideoUnavailable,
+    VideoUnplayable, AgeRestricted,
+)
+
+MAX_VIDEO_SECONDS = 300
+
+
+def transcript_error(error: Exception) -> dict:
+    if isinstance(error, (TranscriptsDisabled, NoTranscriptFound)):
+        return {"error_code": "captions_unavailable", "error": "This video has no accessible captions. Choose a video with captions enabled; videos without captions require audio transcription."}
+    if isinstance(error, RequestBlocked):
+        return {"error_code": "youtube_blocked", "error": "YouTube blocked the caption request from this connection. Try again later or use another connection."}
+    if isinstance(error, (VideoUnavailable, VideoUnplayable, AgeRestricted)):
+        return {"error_code": "video_unavailable", "error": "This video is unavailable or restricted. Choose a public, unrestricted video with captions."}
+    return {"error_code": "transcript_service_unavailable", "error": "Could not connect to the YouTube caption service. Check the backend internet connection and try again."}
 
 
 # Supported YouTube URL patterns
@@ -73,17 +89,15 @@ def fetch_transcript(video_id: str, preferred_lang: str = "en") -> dict:
         try:
             # Try fetching with preferred language
             transcript = ytt_api.fetch(video_id, languages=[preferred_lang, "en"])
-        except Exception:
+        except NoTranscriptFound:
             try:
                 # Fallback: fetch any available transcript
                 available = list(ytt_api.list(video_id))
                 if not available:
-                    raise ValueError("No captions available")
+                    return transcript_error(TranscriptsDisabled(video_id))
                 transcript = available[0].fetch()
             except Exception as inner_e:
-                return {
-                    "error": f"This video does not expose a transcript. Try another video. ({str(inner_e)})"
-                }
+                return transcript_error(inner_e)
 
         if transcript is None:
             return {
@@ -106,12 +120,12 @@ def fetch_transcript(video_id: str, preferred_lang: str = "en") -> dict:
                 "start": round(float(start), 2),
                 "duration": round(float(duration), 2),
             })
-            total_duration = float(start) + float(duration)
+            total_duration = max(total_duration, float(start) + float(duration))
 
-        # Check total duration — limit to ~3 minutes for hackathon
-        if total_duration > 240:  # 4 min buffer
+        if total_duration > MAX_VIDEO_SECONDS:
             return {
-                "error": "For the hackathon demo, use a short video under 3 minutes."
+                "error_code": "video_too_long",
+                "error": "Use a video up to 5 minutes long. This video's captions extend beyond the 5-minute limit."
             }
 
         return {
@@ -121,11 +135,4 @@ def fetch_transcript(video_id: str, preferred_lang: str = "en") -> dict:
         }
 
     except Exception as e:
-        error_msg = str(e)
-        if "disabled" in error_msg.lower() or "no transcript" in error_msg.lower():
-            return {
-                "error": "This video does not expose a transcript. Try another video."
-            }
-        return {
-            "error": f"Transcript service is temporarily unavailable. Try another demo video. ({error_msg})"
-        }
+        return transcript_error(e)

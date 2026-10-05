@@ -170,7 +170,7 @@ async def api_fetch_transcript(req: FetchTranscriptRequest):
     result = await asyncio.to_thread(fetch_transcript, video_id, req.preferred_language)
 
     if "error" in result:
-        raise HTTPException(status_code=400, detail=result["error"])
+        raise HTTPException(status_code=400, detail={"code": result.get("error_code", "transcript_failed"), "message": result["error"]})
 
     result["title"] = title
     return result

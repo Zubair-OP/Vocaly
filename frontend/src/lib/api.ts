@@ -100,6 +100,7 @@ const GENERATION_ERRORS: Record<string, string> = {
 };
 
 export function generationErrorMessage(error: unknown, phase: 'transcript' | 'generation'): string {
+  if (phase === 'transcript' && error instanceof ApiError && error.status < 500) return error.message;
   if (error instanceof ApiError && ['reference_unavailable', 'reference_generation_failed'].includes(error.code || '')) return error.message;
   if (error instanceof ApiError && error.code && GENERATION_ERRORS[error.code]) {
     return GENERATION_ERRORS[error.code];
@@ -108,7 +109,7 @@ export function generationErrorMessage(error: unknown, phase: 'transcript' | 'ge
     return 'The generation service is unavailable. Check that the backend is running and try again.';
   }
   return phase === 'transcript'
-    ? 'We could not fetch this transcript. Use a public video with captions that is under 4 minutes.'
+    ? 'We could not fetch this transcript. Use a public video with captions that is up to 5 minutes long.'
     : 'We could not create the audio from this transcript. Please try again or choose another voice.';
 }
 

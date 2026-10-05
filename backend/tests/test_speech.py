@@ -144,12 +144,30 @@ class SpeechTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(transcript, "YouTubeTranscriptApi", return_value=api):
             self.assertEqual(transcript.fetch_transcript("abcdefghijk")["source_language"], "fr")
 
+    def test_five_minute_caption_limit(self):
+        for end, allowed in [(120, True), (299, True), (300, True), (301, False)]:
+            with self.subTest(end=end):
+                api = SimpleNamespace(fetch=lambda *args, **kwargs: [SimpleNamespace(text="Hello", start=0, duration=end)])
+                with patch.object(transcript, "YouTubeTranscriptApi", return_value=api):
+                    result = transcript.fetch_transcript("abcdefghijk")
+                self.assertEqual("segments" in result, allowed)
+                if not allowed:
+                    self.assertEqual(result["error_code"], "video_too_long")
+
+    def test_missing_captions_and_network_errors_are_distinct(self):
+        for error, code in [(transcript.TranscriptsDisabled("abcdefghijk"), "captions_unavailable"), (ConnectionError("private network detail"), "transcript_service_unavailable")]:
+            api = SimpleNamespace(fetch=lambda *args, **kwargs: None)
+            with patch.object(api, "fetch", side_effect=error), patch.object(transcript, "YouTubeTranscriptApi", return_value=api):
+                result = transcript.fetch_transcript("abcdefghijk")
+            self.assertEqual(result["error_code"], code)
+            self.assertNotIn("private network detail", result["error"])
+
     def test_any_available_caption_language_is_fetched(self):
         class Captions(list):
             language_code = "ja"
         captions = Captions([SimpleNamespace(text="こんにちは", start=0, duration=2)])
         def unavailable(*args, **kwargs):
-            raise RuntimeError("No English captions")
+            raise transcript.NoTranscriptFound("abcdefghijk", ["en"], [])
         api = SimpleNamespace(fetch=unavailable, list=lambda _: [SimpleNamespace(fetch=lambda: captions)])
         with patch.object(transcript, "YouTubeTranscriptApi", return_value=api):
             self.assertEqual(transcript.fetch_transcript("abcdefghijk")["source_language"], "ja")

@@ -77,7 +77,7 @@ The frontend runs on **http://localhost:5173** and proxies API calls to the back
 
 ## Demo Videos (Tested)
 
-Use short videos (under 3 minutes) for best results:
+Use public videos with accessible captions, up to 5 minutes long:
 
 - Any YouTube video with available captions
 - Educational content with clear speech works best
