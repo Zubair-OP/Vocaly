@@ -239,3 +239,54 @@ test("long Urdu transcripts stay readable with playback in view", async ({ page 
   await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "Outputs" }).click();
   await expect(player).toBeInViewport({ ratio: 1 });
 });
+
+for (const width of [375, 1440]) {
+  test("generation progress reflects requests without layout jumps " + width, async ({ page }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await mock(page);
+    let finishTranscript!: () => void;
+    let finishAudio!: () => void;
+    const transcriptGate = new Promise<void>(resolve => { finishTranscript = resolve; });
+    const audioGate = new Promise<void>(resolve => { finishAudio = resolve; });
+    await page.route("**/api/fetch-transcript", async route => {
+      await transcriptGate;
+      await route.fulfill({ json: { video_id: "dQw4w9WgXcQ", title: outputs[0].title, source_language: "en", segments: [{ text: "Hello", start: 0, duration: 2 }] } });
+    });
+    await page.route("**/api/generate", async route => {
+      await audioGate;
+      await route.fulfill({ json: { status: "completed", output: outputs[0] } });
+    });
+    try {
+      await page.goto("/");
+      await page.getByLabel("YouTube URL").fill("https://youtu.be/dQw4w9WgXcQ");
+      await page.getByRole("button", { name: "Generate audio", exact: true }).scrollIntoViewIfNeeded();
+      const dock = page.locator(".generation-dock");
+      const original = await dock.evaluate(el => ({ top: el.getBoundingClientRect().top + scrollY, height: el.getBoundingClientRect().height }));
+      await page.getByRole("button", { name: "Generate audio", exact: true }).click();
+      const transcript = page.getByRole("progressbar", { name: "Fetch transcript", exact: true });
+      const audio = page.getByRole("progressbar", { name: "Translate & create audio", exact: true });
+      await expect(transcript).toHaveAttribute("data-state", "indeterminate");
+      await expect(transcript).not.toHaveAttribute("aria-valuenow");
+      await expect(audio).toHaveAttribute("aria-valuenow", "0");
+      await expect(page.getByLabel("YouTube URL", { exact: true })).toBeDisabled();
+      await page.screenshot({ path: "test-results/generating-transcript-" + width + ".png", fullPage: true });
+      finishTranscript();
+      await expect(transcript).toHaveAttribute("aria-valuenow", "100");
+      await expect(audio).toHaveAttribute("data-state", "indeterminate");
+      await page.waitForTimeout(1800);
+      await expect(audio).not.toHaveAttribute("aria-valuenow");
+      const processing = await dock.evaluate(el => ({ top: el.getBoundingClientRect().top + scrollY, height: el.getBoundingClientRect().height }));
+      expect(Math.abs(processing.top - original.top)).toBeLessThan(2);
+      expect(Math.abs(processing.height - original.height)).toBeLessThan(2);
+      await page.screenshot({ path: "test-results/generating-audio-" + width + ".png", fullPage: true });
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      expect(await audio.locator(".progress-activity").evaluate(el => getComputedStyle(el).animationName)).toBe("none");
+      finishAudio();
+      await expect(audio).toHaveAttribute("aria-valuenow", "100");
+      await expect(page).toHaveURL(/outputs\?id=0/);
+    } finally {
+      finishTranscript();
+      finishAudio();
+    }
+  });
+}

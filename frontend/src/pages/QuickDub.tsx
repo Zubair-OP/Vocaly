@@ -15,7 +15,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 import { PageTitleBlock } from "@/components/shared/PageTitleBlock";
 import { VideoThumbnail } from "@/components/shared/VideoThumbnail";
@@ -30,11 +29,8 @@ import {
 import { LANGUAGES, VOICES } from "@/lib/format";
 import {
   Link2,
-  Upload,
   ArrowRight,
   Info,
-  Youtube,
-  Loader2,
   X,
 } from "lucide-react";
 
@@ -43,20 +39,15 @@ import {
 type Step =
   | "idle"
   | "fetching"
-  | "translating"
   | "generating"
   | "completed"
   | "error";
 
-/** The real pipeline, mirrored by the animated stepper under the CTA. */
+// Translation and speech synthesis share one backend request.
 const PIPELINE_STEPS = [
-  { id: "fetch", label: "Fetch Captions" },
-  { id: "transcribe", label: "Translate" },
-  { id: "generate", label: "Generate Audio" },
+  { id: "fetch", label: "Fetch transcript" },
+  { id: "generate", label: "Translate & create audio" },
 ];
-
-const STAGE_LABELS = ["Fetching captions…", "Translating…", "Generating audio…"];
-
 
 function extractVideoId(value: string): string | null {
   try {
@@ -92,7 +83,6 @@ export function QuickDub() {
   const [step, setStep] = useState<Step>("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [videoTitle, setVideoTitle] = useState("");
-  const [stage, setStage] = useState(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const mounted = useRef(true);
   useEffect(() => {
@@ -150,10 +140,8 @@ export function QuickDub() {
     }
 
     setStep("fetching");
-    setStage(0);
     setErrorMessage("");
 
-    let promote: ReturnType<typeof setTimeout> | undefined;
     let phase: 'transcript' | 'generation' = 'transcript';
     try {
       const transcript = await fetchTranscript(url, sourceLanguage);
@@ -163,18 +151,9 @@ export function QuickDub() {
       if (transcript.source_language)
         setSourceLanguage(transcript.source_language);
 
-      setStep("translating");
+      setStep("generating");
       phase = 'generation';
-      setStage(1);
 
-      // The backend translates and synthesises audio in one call,
-      // so the stepper advances to the last stage while that call is running.
-      promote = setTimeout(() => {
-        setStep("generating");
-        setStage(2);
-      }, 1500);
-
-      timers.current.push(promote);
       // The backend translates, synthesises audio, and saves the output to MongoDB.
       const reference = speechSettings.speech_mode === "reference" && speechSettings.referenceFile ? await uploadSpeakerReference(speechSettings.referenceFile) : undefined;
       const result = await generateAudio({
@@ -190,7 +169,6 @@ export function QuickDub() {
         transcript: transcript.segments.map((s) => s.text).join(" "),
       });
 
-      clearTimeout(promote);
       if (!mounted.current) return;
       setStep("completed");
       const destination = result.output?.id
@@ -201,13 +179,13 @@ export function QuickDub() {
       if (!mounted.current) return;
       setStep("error");
       setErrorMessage(generationErrorMessage(error, phase));
-    } finally {
-      if (promote) clearTimeout(promote);
     }
   };
 
   const isProcessing =
-    step === "fetching" || step === "translating" || step === "generating";
+    step === "fetching" || step === "generating";
+  const showProgress = isProcessing || step === "completed";
+  const activeStage = step === "fetching" ? 0 : step === "generating" ? 1 : -1;
   const availableVoices = voiceCatalogue[targetLanguage] || [];
 
 
@@ -217,36 +195,20 @@ export function QuickDub() {
         <div className="workspace-main flex flex-col gap-7">
           <PageTitleBlock
             title="Give your video a new voice."
-            subtitle="One video. More possibilities. Create a voice track in the language of your next audience."
+            subtitle="A familiar voice, in a new language. Start with a video and make it yours."
           />
-          <section className="creation-shell">
-            <div className="creation-intro"><span className="studio-eyebrow">01 / CREATE A DUB</span><h2>Start with your video</h2><p>Add a YouTube link, then make it sound like you.</p></div>
-            <Tabs defaultValue="youtube" className="p-5 sm:p-6">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <TabsList aria-label="Video source">
-                  <TabsTrigger value="youtube">
-                    <Youtube className="size-4" />
-                    YouTube link
-                  </TabsTrigger>
-                  <TabsTrigger value="upload" disabled>
-                    <Upload className="size-4" />
-                    Upload file
-                  </TabsTrigger>
-                </TabsList>
-                <span className="text-xs text-muted-foreground">
-                  File uploads coming soon
-                </span>
-              </div>
-              <TabsContent value="youtube" className="pt-6">
-                <form
-                  noValidate
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (!isProcessing) void handleGenerate();
-                  }}
-                  aria-busy={isProcessing}
-                >
-                  <FieldGroup className="gap-5">
+          <section className="creation-shell" aria-label="Create a dub">
+            <form noValidate onSubmit={(event) => {
+              event.preventDefault();
+              if (!isProcessing && step !== "completed") void handleGenerate();
+            }}>
+              <section className="creation-section" aria-labelledby="source-heading">
+                <div className="creation-section-label">
+                  <span className="creation-section-number">01 / SOURCE</span>
+                  <h2 id="source-heading">The starting point</h2>
+                  <p>A YouTube video with something worth sharing.</p>
+                </div>
+                <FieldGroup className="gap-4">
                     <Field
                       className="gap-2"
                       data-invalid={step === "error"}
@@ -309,12 +271,20 @@ export function QuickDub() {
                         <div className="source-preview-image"><VideoThumbnail videoId={videoId} /></div>
                         <div className="min-w-0">
                           <span className="studio-eyebrow">YOUR SOURCE VIDEO</span>
-                          <p className="mt-1 break-words text-sm font-medium">{videoTitle || "YouTube video selected"}</p>
-                          <p className="mt-1 text-xs text-muted-foreground">{videoTitle ? "Transcript fetched. Your dub is on its way." : "We will fetch the title and captions when you generate."}</p>
+                          <p className="mt-1 truncate text-sm font-medium" title={videoTitle || "YouTube video selected"}>{videoTitle || "YouTube video selected"}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">Source video selected. Your settings are below.</p>
                         </div>
                       </article>
                     )}
-                    <div className="form-section-heading"><span>02</span><h3>Choose your languages</h3></div>
+                </FieldGroup>
+              </section>
+              <section className="creation-section" aria-labelledby="language-heading">
+                <div className="creation-section-label">
+                  <span className="creation-section-number">02 / LANGUAGE</span>
+                  <h2 id="language-heading">Reach someone new</h2>
+                  <p>Keep the meaning. Change the language.</p>
+                </div>
+                <FieldGroup>
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <Field className="gap-2">
                         <FieldLabel htmlFor="source-language">
@@ -363,7 +333,15 @@ export function QuickDub() {
                         </Select>
                       </Field>
                     </div>
-                    <div className="form-section-heading"><span>03</span><h3>Make it sound right</h3></div>
+                </FieldGroup>
+              </section>
+              <section className="creation-section" aria-labelledby="voice-heading">
+                <div className="creation-section-label">
+                  <span className="creation-section-number">03 / VOICE</span>
+                  <h2 id="voice-heading">Set the tone</h2>
+                  <p>Choose a voice and listen before you create.</p>
+                </div>
+                <FieldGroup>
                     <div className="voice-settings-grid">
                     <Field className="gap-2">
                       <FieldLabel htmlFor="voice-select">Voice</FieldLabel>
@@ -391,105 +369,30 @@ export function QuickDub() {
                     </Field>
                     <SpeechControls language={targetLanguage} voice={voice} disabled={isProcessing} referenceAvailable={referenceAvailable} referenceLanguages={referenceLanguages} settings={speechSettings} onChange={setSpeechSettings} />
                     </div>
-                    <div className="flex flex-col gap-3 pt-1">
-                      <Button
-                        type="submit"
-                        id="generate-audio"
-                        disabled={isProcessing || step === "completed"}
-                        className="h-auto min-h-12 w-full whitespace-normal py-3"
-                      >
-                        {isProcessing ? (
-                          <>
-                            <Loader2
-                              data-icon="inline-start"
-                              className="animate-spin"
-                            />
-                            {
-                              STAGE_LABELS[
-                                Math.min(stage, STAGE_LABELS.length - 1)
-                              ]
-                            }
-                          </>
-                        ) : (
-                          <>
-                            Generate audio
-                            <span className="cta-icon"><ArrowRight data-icon="inline-end" /></span>
-                          </>
-                        )}
-                      </Button>
-                      <p
-                        id="url-help"
-                        className="flex items-start gap-2 text-xs leading-relaxed text-muted-foreground"
-                      >
-                        <Info className="mt-0.5 size-3.5 shrink-0" />
-                        Use a public video with captions. Short videos work
-                        best.
-                      </p>
-                      {(isProcessing || step === "completed") && (
-                        <div
-                          aria-live="polite"
-                          className="rounded-xl bg-background p-4"
-                        >
-                          <StepProgress
-                            steps={PIPELINE_STEPS}
-                            activeIndex={stage}
-                            complete={step === "completed"}
-                          />
-                        </div>
-                      )}
-                      {step === "error" && (
-                        <Alert id="dub-error" variant="destructive">
-                          <AlertDescription>{errorMessage}</AlertDescription>
-                        </Alert>
-                      )}
-                      {step === "completed" && (
-                        <Alert variant="success">
-                          <AlertDescription>
-                            Your audio is ready. Opening outputs...
-                          </AlertDescription>
-                        </Alert>
-                      )}
+                </FieldGroup>
+              </section>
+              <div className="creation-footer">
+                <div className="generation-dock">
+                  <div className="generation-actions" data-visible={!showProgress} aria-hidden={showProgress}>
+                    <div className="generation-note">
+                      <span className="text-sm font-medium">Ready when you are.</span>
+                      <p id="url-help"><Info className="size-3.5 shrink-0" aria-hidden="true" /> Use a public video with captions. Short videos work best.</p>
                     </div>
-                  </FieldGroup>
-                </form>
-              </TabsContent>
-            </Tabs>
-          </section>
-          <section aria-labelledby="how-it-works">
-            <h2 id="how-it-works" className="mb-4 text-base font-semibold">
-              From video to voice
-            </h2>
-            <ol className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-              {[
-                {
-                  title: "Fetch transcript",
-                  desc: "Find the captions from your YouTube video.",
-                },
-                {
-                  title: "Translate text",
-                  desc: "Bring the original meaning into your chosen language.",
-                },
-                {
-                  title: "Generate audio",
-                  desc: "Create a voice track, ready to listen and download.",
-                },
-              ].map((item, index) => (
-                <li key={item.title} className="flex gap-3">
-                  <span className="pt-0.5 text-xs font-semibold tabular-nums text-accent-foreground">
-                    0{index + 1}
-                  </span>
-                  <div>
-                    <h3 className="text-sm font-medium">{item.title}</h3>
-                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                      {item.desc}
-                    </p>
+                    <Button type="submit" id="generate-audio" disabled={showProgress} tabIndex={showProgress ? -1 : undefined}>
+                      Generate audio <ArrowRight data-icon="inline-end" />
+                    </Button>
                   </div>
-                </li>
-              ))}
-            </ol>
+                  <div className="generation-feedback" data-visible={showProgress} aria-hidden={!showProgress}>
+                    <StepProgress steps={PIPELINE_STEPS} activeIndex={activeStage} complete={step === "completed"}
+                      status={step === "completed" ? "Your audio is ready. Opening outputs..." : step === "fetching" ? "Fetching your transcript..." : "Translating and creating your audio..."} />
+                  </div>
+                </div>
+                {step === "error" && <Alert id="dub-error" variant="destructive"><AlertDescription>{errorMessage}</AlertDescription></Alert>}
+              </div>
+            </form>
           </section>
+          <p className="creation-footnote">Your finished audio will be waiting in Outputs.</p>
         </div>
-
       </div>
     </AppShell>
   );
