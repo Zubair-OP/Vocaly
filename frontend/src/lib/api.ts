@@ -32,6 +32,7 @@ export interface VoiceOption {
 
 export interface VoicesResponse {
   voices: Record<string, VoiceOption[]>;
+  preview_text?: Record<string, string>;
   reference_voice?: { available: boolean; languages: string[] };
 }
 
@@ -100,6 +101,7 @@ const GENERATION_ERRORS: Record<string, string> = {
 };
 
 export function generationErrorMessage(error: unknown, phase: 'transcript' | 'generation'): string {
+  if (error instanceof ApiError && [429, 413, 408, 507].includes(error.status)) return error.message;
   if (phase === 'transcript' && error instanceof ApiError && error.status < 500) return error.message;
   if (error instanceof ApiError && ['reference_unavailable', 'reference_generation_failed'].includes(error.code || '')) return error.message;
   if (error instanceof ApiError && error.code && GENERATION_ERRORS[error.code]) {

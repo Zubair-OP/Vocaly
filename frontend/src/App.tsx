@@ -6,6 +6,7 @@ import { QuickDub } from "@/pages/QuickDub";
 import { Outputs } from "@/pages/Outputs";
 import { GeneratingAudio } from "@/pages/GeneratingAudio";
 import { Landing } from "@/pages/Landing";
+import { Toaster } from "@/components/ui/sonner";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,6 +46,7 @@ function App() {
           <Route path="/processing" element={<GeneratingAudio />} />
           <Route path="/dub/:id/progress" element={<GeneratingAudio />} />
         </Routes>
+        <Toaster />
       </BrowserRouter>
     </QueryClientProvider>
   );

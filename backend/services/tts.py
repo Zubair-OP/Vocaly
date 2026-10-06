@@ -105,7 +105,7 @@ async def generate_speech(
     os.makedirs(output_dir, exist_ok=True)
 
     # Generate a unique filename
-    job_id = str(uuid.uuid4())[:8]
+    job_id = uuid.uuid4().hex
     filename = f"vocally_{video_id}_{target_language}_{job_id}.mp3"
     filepath = os.path.join(output_dir, filename)
 
@@ -128,4 +128,4 @@ async def generate_speech(
         error_str = str(e).lower()
         if "voice" in error_str:
             return {"error": f"Audio generation failed. The voice '{voice}' may not be available. Retry with another voice."}
-        return {"error": f"Audio generation failed. Retry with another voice. ({str(e)})"}
+        return {"error": "Audio generation failed. Retry with another voice."}

@@ -9,8 +9,8 @@ import os
 from datetime import datetime, timezone
 from typing import Any
 
-from pymongo import ASCENDING, AsyncMongoClient
-from pymongo.database import Database
+from pymongo import ASCENDING, DESCENDING, AsyncMongoClient
+from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import PyMongoError
 
 DATABASE_NAME = os.getenv("MONGO_DATABASE", "vocally")
@@ -39,8 +39,9 @@ def get_client() -> AsyncMongoClient:
     return _client
 
 
-def get_db() -> Database:
-    return get_client()[DATABASE_NAME]
+def get_db() -> AsyncDatabase:
+    # Resolve after dotenv is loaded, just like the connection URI.
+    return get_client()[os.getenv("MONGO_DATABASE", DATABASE_NAME)]
 
 
 def outputs_collection():
@@ -55,7 +56,7 @@ async def connect_to_mongo() -> None:
         await outputs_collection().create_index([("created_at", ASCENDING)])
         await outputs_collection().create_index([("id", ASCENDING)], unique=True)
     except PyMongoError as exc:
-        raise DatabaseUnavailable(f"Could not connect to MongoDB: {exc}") from exc
+        raise DatabaseUnavailable("Could not connect to MongoDB.") from exc
 
 
 async def close_mongo_connection() -> None:
@@ -119,16 +120,14 @@ async def list_outputs(limit: int = 100) -> list[dict[str, Any]]:
         cursor = (
             outputs_collection()
             .find({})
-            .sort("created_at", ASCENDING)
+            .sort("created_at", DESCENDING)
             .limit(limit)
         )
         docs = await cursor.to_list(length=limit)
     except PyMongoError as exc:
         raise DatabaseUnavailable(f"Could not load outputs: {exc}") from exc
 
-    outputs = [serialize_output(doc) for doc in docs]
-    outputs.reverse()
-    return outputs
+    return [serialize_output(doc) for doc in docs]
 
 
 async def get_output(output_id: str) -> dict[str, Any] | None:
@@ -145,6 +144,16 @@ async def delete_output(output_id: str) -> bool:
     except PyMongoError as exc:
         raise DatabaseUnavailable(f"Could not delete output: {exc}") from exc
     return result.deleted_count > 0
+
+
+async def audio_is_shared(output_id: str, audio_url: str) -> bool:
+    try:
+        doc = await outputs_collection().find_one(
+            {"id": {"$ne": output_id}, "audio_url": audio_url}, {"_id": 1}
+        )
+    except PyMongoError as exc:
+        raise DatabaseUnavailable("Could not check audio references.") from exc
+    return doc is not None
 
 
 async def clear_outputs() -> int:

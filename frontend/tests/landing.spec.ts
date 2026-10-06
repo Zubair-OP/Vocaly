@@ -31,7 +31,12 @@ for (const width of [320, 375, 768, 1024, 1440]) {
   });
 }
 
-test("language examples update with keyboard and animation can pause", async ({ page }) => {
+test("language previews load backend data and generate audio", async ({ page }) => {
+  await page.route("**/api/voices", route => route.fulfill({ json: { voices: { ja: [{ id: "ja-JP-NanamiNeural", name: "Nanami" }] }, preview_text: { ja: "Backend sample text" } } }));
+  await page.route("**/api/voice-preview", async route => {
+    expect(route.request().postDataJSON()).toEqual({ target_language: "ja", voice: "ja-JP-NanamiNeural", narration_style: "normal" });
+    await route.fulfill({ json: { audio_url: "/api/audio/test-preview.mp3" } });
+  });
   await page.goto("/");
   const hero = page.getByRole("group", { name: "Preview a language" });
   await hero.getByRole("radio", { name: "UR Urdu" }).check();
@@ -45,7 +50,9 @@ test("language examples update with keyboard and animation can pause", async ({ 
   await expect(all.getByRole("radio")).toHaveCount(10);
   await all.getByRole("radio", { name: "JA Japanese" }).check();
   await expect(page.locator('.voice-demo-expanded .voice-translation p')).toHaveAttribute("lang", "ja");
-  await page.getByRole("button", { name: "Pause waveform animation" }).click();
+  await expect(page.locator('.voice-demo-expanded .voice-translation p')).toHaveText("Backend sample text");
+  await page.getByRole("button", { name: "Generate voice preview" }).click();
+  await expect(page.getByLabel("Japanese voice preview", { exact: true })).toHaveAttribute("src", "/api/audio/test-preview.mp3");
   await expect(page.locator(".voice-demo")).toHaveAttribute("data-animated", "false");
 });
 

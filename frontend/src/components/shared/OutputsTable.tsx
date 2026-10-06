@@ -2,6 +2,7 @@ import { VideoThumbnail } from "@/components/shared/VideoThumbnail";
 import { type ReactNode } from "react";
 import {
   Download,
+  Trash2,
   ListMusic,
   Play,
   Plus,
@@ -37,7 +38,7 @@ const COLS = {
   duration: "w-[84px]",
   status: "w-[104px]",
   created: "w-[124px]",
-  actions: "w-[92px] pr-5",
+  actions: "w-[140px] pr-5",
 } as const;
 
 interface OutputsTableProps {
@@ -48,6 +49,8 @@ interface OutputsTableProps {
   onSelect: (output: OutputItem) => void;
   onPlay: (output: OutputItem) => void;
   onDownload: (output: OutputItem) => void;
+  onDelete: (output: OutputItem) => void;
+  deletingId?: string | null;
   onRetry?: () => void;
   /** Rendered inside the empty state (e.g. a "Create a Dub" link). */
   emptyAction?: ReactNode;
@@ -66,6 +69,8 @@ export function OutputsTable({
   onSelect,
   onPlay,
   onDownload,
+  onDelete,
+  deletingId,
   onRetry,
   emptyAction,
   className,
@@ -216,6 +221,10 @@ export function OutputsTable({
                 >
                   <Download />
                 </Button>
+                <Button size="icon" variant="ghost" aria-label={"Delete " + output.title}
+                  disabled={Boolean(deletingId)} onClick={() => onDelete(output)}>
+                  <Trash2 />
+                </Button>
               </div>
             </div>
           </article>
@@ -332,6 +341,10 @@ export function OutputsTable({
                       >
                         <Download className="h-3.5 w-3.5" />
                       </button>
+                      <Button size="icon" variant="ghost" aria-label={"Delete " + output.title}
+                        disabled={Boolean(deletingId)} onClick={(e) => { e.stopPropagation(); onDelete(output); }}>
+                        <Trash2 />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>

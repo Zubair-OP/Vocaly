@@ -45,6 +45,18 @@ def _chunk_text(text: str, max_size: int = MAX_CHUNK_SIZE) -> list[str]:
         if not sentence:
             continue
 
+        # Caption text may have no punctuation, including CJK transcripts.
+        while len(sentence) > max_size:
+            if current_chunk:
+                chunks.append(current_chunk.strip())
+                current_chunk = ""
+            split_at = sentence.rfind(" ", 0, max_size + 1)
+            split_at = split_at if split_at > 0 else max_size
+            chunks.append(sentence[:split_at])
+            sentence = sentence[split_at:].strip()
+        if not sentence:
+            continue
+
         if len(current_chunk) + len(sentence) + 1 > max_size:
             if current_chunk:
                 chunks.append(current_chunk.strip())
@@ -88,12 +100,13 @@ async def translate_text(
     if source_language == target_language:
         return {"translated_text": text}
 
-    model = _get_gemini_model()
+    model = None
 
     chunks = _chunk_text(text)
     translated_chunks = []
 
     try:
+        model = _get_gemini_model()
         if model is None:
             raise ValueError("Translation provider is not configured")
         for chunk in chunks:

@@ -4,6 +4,42 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Sonner handles stacking, focus, swipe dismissal and announcements. */
+[data-sonner-toaster].vocally-toaster {
+  --normal-bg: var(--surface);
+  --normal-text: var(--text-primary);
+  --normal-border: var(--border);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+[data-sonner-toaster].vocally-toaster [data-sonner-toast].vocally-toast {
+  border-radius: 16px;
+  padding: 18px 20px;
+  gap: 14px;
+  box-shadow: 0 12px 40px rgb(var(--brand-ink) / 12%);
+  transition: transform 350ms cubic-bezier(.22, .8, .22, 1), opacity 350ms ease, height 350ms ease;
+}
+[data-sonner-toaster].vocally-toaster [data-sonner-toast] [data-description] {
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+[data-sonner-toaster].vocally-toaster [data-sonner-toast][data-type='success'] [data-icon] {
+  color: rgb(var(--brand-text));
+}
+[data-sonner-toaster].vocally-toaster [data-sonner-toast].vocally-toast[data-mounted='false'] {
+  transform: translateX(32px);
+  opacity: 0;
+}
+[data-sonner-toaster].vocally-toaster [data-sonner-toast].vocally-toast[data-removed='true'][data-swipe-out='false'] {
+  transform: translateX(calc(100% + 40px));
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-sonner-toaster].vocally-toaster [data-sonner-toast].vocally-toast {
+    transition: none;
+    animation: none;
+  }
+}
+
 /* Public landing page. All tokens and treatments are scoped to preserve the studio. */
 .landing {
   --landing-bg: #101012;

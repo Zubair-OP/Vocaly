@@ -4,6 +4,7 @@ Handles YouTube URL validation, video ID extraction, and transcript retrieval.
 """
 
 import re
+from urllib.parse import parse_qs, urlsplit
 # pyrefly: ignore [missing-import]
 import httpx
 from youtube_transcript_api import YouTubeTranscriptApi
@@ -25,22 +26,32 @@ def transcript_error(error: Exception) -> dict:
     return {"error_code": "transcript_service_unavailable", "error": "Could not connect to the YouTube caption service. Check the backend internet connection and try again."}
 
 
-# Supported YouTube URL patterns
-YOUTUBE_PATTERNS = [
-    r"(?:https?://)?(?:www\.)?youtube\.com/watch\?v=([a-zA-Z0-9_-]{11})",
-    r"(?:https?://)?youtu\.be/([a-zA-Z0-9_-]{11})",
-    r"(?:https?://)?(?:www\.)?youtube\.com/shorts/([a-zA-Z0-9_-]{11})",
-    r"(?:https?://)?(?:www\.)?youtube\.com/embed/([a-zA-Z0-9_-]{11})",
-]
-
-
 def extract_video_id(url: str) -> str | None:
     """Extract YouTube video ID from various URL formats."""
-    for pattern in YOUTUBE_PATTERNS:
-        match = re.search(pattern, url.strip())
-        if match:
-            return match.group(1)
-    return None
+    value = url.strip()
+    try:
+        parsed = urlsplit(value if "://" in value else f"https://{value}")
+        if parsed.scheme not in {"http", "https"} or parsed.username or parsed.password:
+            return None
+        if parsed.port not in {None, 80, 443}:
+            return None
+        host = parsed.hostname
+        parts = parsed.path.strip("/").split("/")
+        if host == "youtu.be" and len(parts) == 1:
+            video_id = parts[0]
+        elif host in {"youtube.com", "www.youtube.com", "m.youtube.com"}:
+            if parsed.path == "/watch":
+                values = parse_qs(parsed.query).get("v", [])
+                video_id = values[0] if len(values) == 1 else ""
+            elif len(parts) == 2 and parts[0] in {"shorts", "embed"}:
+                video_id = parts[1]
+            else:
+                return None
+        else:
+            return None
+    except ValueError:
+        return None
+    return video_id if re.fullmatch(r"[a-zA-Z0-9_-]{11}", video_id) else None
 
 
 def validate_youtube_url(url: str) -> tuple[bool, str | None, str | None]:

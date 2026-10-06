@@ -1,4 +1,43 @@
 import { test, expect, type Page } from "@playwright/test";
+
+for (const width of [375, 1440]) {
+  test(`delete output removes its player, transcript and URL at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await mock(page);
+    await page.route("**/api/outputs?*", route => route.fulfill({ json: { outputs: [outputs[0]] } }));
+    await page.route("**/api/outputs/0", route => {
+      expect(route.request().method()).toBe("DELETE");
+      return route.fulfill({ json: { status: "deleted", id: "0" } });
+    });
+    await page.goto("/outputs?id=0");
+    await page.getByRole("button", { name: "Delete " + outputs[0].title, exact: true }).click();
+    await expect(page.getByText("No outputs to show")).toBeVisible();
+    await expect(page.locator("audio")).toHaveCount(0);
+    await expect(page.getByRole("tab", { name: "Transcript", exact: true })).toBeDisabled();
+    await expect(page).toHaveURL(/\/outputs$/);
+    const notification = page.locator('[data-sonner-toast][data-type="success"]');
+    await expect(notification).toContainText("Audio deleted");
+    await expect(notification).toContainText("Transcript and saved details cleared");
+    await expect(page.locator('[data-sonner-toaster]')).toHaveAttribute("data-x-position", "right");
+    await expect(notification).toHaveCount(0, { timeout: 7000 });
+  });
+}
+
+test("delete failure retains output and allows retry", async ({ page }) => {
+  await mock(page);
+  await page.route("**/api/outputs/0", route => route.fulfill({ status: 503, json: { detail: { message: "Audio could not be removed. Retry deletion." } } }));
+  await page.goto("/outputs?id=0");
+  const button = page.getByRole("button", { name: "Delete " + outputs[0].title, exact: true });
+  await button.click();
+  await expect(page.getByRole("alert")).toHaveText("Audio could not be removed. Retry deletion.");
+  await expect(button).toBeEnabled();
+  await expect(page.locator('[data-sonner-toast][data-type="success"]')).toHaveCount(0);
+  await expect(page.locator("audio")).toHaveAttribute("src", "/sample.wav");
+  await page.route("**/api/outputs/0", route => route.fulfill({ json: { status: "deleted", id: "0" } }));
+  await button.click();
+  await expect(button).toHaveCount(0);
+  await expect(page.getByRole("alert")).toHaveCount(0);
+});
 const outputs = Array.from({ length: 10 }, (_, i) => ({
   id: String(i),
   videoId: "dQw4w9WgXcQ",

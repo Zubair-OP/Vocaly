@@ -1,19 +1,26 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowDown, AudioLines, Pause, Play } from "lucide-react";
+import { fetchVoices } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Reveal, StudioLink, Waveform } from "./LandingPrimitives";
 
 const languages = [
-  { code: "en", name: "English", line: "A good story deserves to be heard." },
-  { code: "ur", name: "Urdu", line: "ایک اچھی کہانی سنی جانے کی مستحق ہے۔" },
-  { code: "es", name: "Spanish", line: "Una buena historia merece ser escuchada." },
-  { code: "fr", name: "French", line: "Une belle histoire mérite d’être entendue." },
-  { code: "ja", name: "Japanese", line: "良い物語は、聞かれる価値がある。" },
+  { code: "en", name: "English" },
+  { code: "ur", name: "Urdu" },
+  { code: "es", name: "Spanish" },
+  { code: "fr", name: "French" },
+  { code: "ja", name: "Japanese" },
 ];
 
 export function CinematicHero() {
   const [selected, setSelected] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [samples, setSamples] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let active = true;
+    fetchVoices().then(data => { if (active) setSamples(data.preview_text ?? {}); }).catch(() => {});
+    return () => { active = false; };
+  }, []);
   const language = languages[selected];
 
   return (
@@ -35,7 +42,7 @@ export function CinematicHero() {
         <div className="cinematic-corner"><span className="recording-light" /> VOCALLY SESSIONS <span>01 / THE STORYTELLER</span></div>
         <div className="cinematic-caption" aria-live="polite" aria-atomic="true">
           <span><AudioLines strokeWidth={1.2} /> {language.name.toUpperCase()}</span>
-          <p key={language.code} lang={language.code} dir={language.code === "ur" ? "rtl" : "ltr"}>{language.line}</p>
+          <p key={language.code} lang={language.code} dir={language.code === "ur" ? "rtl" : "ltr"}>{samples[language.code] ?? "Open the studio to create your first dub."}</p>
         </div>
         <div className="cinematic-console">
           <div className="cinematic-console-title"><span className="live-dot" /> CHANGE THE LANGUAGE.<br /><span>KEEP THE STORY.</span></div>
@@ -51,7 +58,7 @@ export function CinematicHero() {
             {paused ? <Play strokeWidth={1.4} /> : <Pause strokeWidth={1.4} />}
           </button>
         </div>
-        <div className="cinematic-footnote"><span>INTERACTIVE VISUAL · NO AUDIO PLAYBACK</span><a href="#how-it-works">SCROLL TO EXPLORE <ArrowDown strokeWidth={1.3} /></a></div>
+        <div className="cinematic-footnote"><span>VOICE SAMPLES · HEAR THEM BELOW</span><a href="#how-it-works">SCROLL TO EXPLORE <ArrowDown strokeWidth={1.3} /></a></div>
       </div>
     </section>
   );

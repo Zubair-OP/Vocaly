@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 import {
   RefreshCw,
   Search,
@@ -19,7 +20,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageTitleBlock } from "@/components/shared/PageTitleBlock";
 import { OutputsTable } from "@/components/shared/OutputsTable";
-import { fetchOutputs, type OutputItem } from "@/lib/api";
+import { fetchOutputs, deleteOutput, ApiError, type OutputItem } from "@/lib/api";
 import { fmtDate, langName, narrationName, voiceName } from "@/lib/format";
 
 export function Outputs() {
@@ -27,6 +28,10 @@ export function Outputs() {
   const [outputs, setOutputs] = useState<OutputItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const deleting = useRef(false);
+  const removedIds = useRef(new Set<string>());
   const [view, setView] = useState("library");
   const [tab, setTab] = useState("all");
   const [selectedId, setSelectedId] = useState<string | null>(params.get("id"));
@@ -39,7 +44,7 @@ export function Outputs() {
     setLoading(true);
     setError("");
     try {
-      const data = await fetchOutputs();
+      const data = (await fetchOutputs()).filter(output => !removedIds.current.has(output.id));
       setOutputs(data);
       if (!data.length) setView("library");
       setSelectedId((current) =>
@@ -97,6 +102,47 @@ export function Outputs() {
       "vocally_" + output.videoId + "_" + output.targetLanguage + (output.audioUrl.endsWith(".wav") ? ".wav" : ".mp3");
     a.click();
   };
+  const remove = async (output: OutputItem) => {
+    if (deleting.current) return;
+    deleting.current = true;
+    setDeletingId(output.id);
+    setDeleteError("");
+    // Release the file before deletion, including on Windows where playback may hold it open.
+    if (output.id === selectedId) {
+      detailRef.current?.querySelectorAll("audio").forEach(audio => {
+        audio.pause();
+        audio.removeAttribute("src");
+        audio.load();
+      });
+    }
+    try {
+      try {
+        await deleteOutput(output.id);
+      } catch (cause) {
+        if (!(cause instanceof ApiError && cause.status === 404)) throw cause;
+      }
+      removedIds.current.add(output.id);
+      toast.success("Audio deleted", {
+        description: "Transcript and saved details cleared. Space for your next story.",
+      });
+      setOutputs(current => current.filter(item => item.id !== output.id));
+      setSelectedId(current => current === output.id ? null : current);
+      setPlayTarget(current => current === output.id ? null : current);
+      setView("library");
+      setParams(current => {
+        const next = new URLSearchParams(current);
+        if (next.get("id") === output.id) next.delete("id");
+        return next;
+      }, { replace: true });
+    } catch (cause) {
+      setDeleteError(cause instanceof ApiError ? cause.message : "Could not delete this output. Please try again.");
+      // Remount the player after a failed delete so its source is restored.
+      setPlayRequest(current => current + 1);
+    } finally {
+      deleting.current = false;
+      setDeletingId(null);
+    }
+  };
   const list = (
     <>
       <OutputsTable
@@ -111,6 +157,8 @@ export function Outputs() {
           setPlayRequest((n) => n + 1);
         }}
         onDownload={download}
+        onDelete={output => void remove(output)}
+        deletingId={deletingId}
         onRetry={load}
         emptyAction={
           search || tab !== "all" ? (
@@ -186,6 +234,8 @@ export function Outputs() {
             }
           />
 
+          {deleteError && <p role="alert" className="text-sm text-destructive">{deleteError}</p>}
+          {deletingId && <p role="status" className="text-sm text-muted-foreground">Deleting audio and its saved data…</p>}
           {loading && !selected ? (
             <div className="listening-shell" aria-label="Loading audio player"><div className="listening-card flex flex-col gap-4"><Skeleton className="h-6 w-2/3" /><Skeleton className="h-12 w-full" /></div></div>
           ) : selected ? (
@@ -209,7 +259,7 @@ export function Outputs() {
                 </div>
                 {selected.audioUrl && selected.status === "completed" ? (
                   <div className="mt-5">
-                    <AudioPlayer key={selected.id} src={selected.audioUrl} label={"Audio for " + selected.title}
+                    <AudioPlayer key={selected.id + ":" + (deleteError ? playRequest : "ready")} src={selected.audioUrl} label={"Audio for " + selected.title}
                       playRequest={playTarget === selected.id ? playRequest : 0} />
                   </div>
                 ) : (

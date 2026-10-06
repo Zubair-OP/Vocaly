@@ -56,8 +56,11 @@ The frontend runs on **http://localhost:5173** and proxies API calls to the back
 
 The public landing page is at `/`. **Open Studio** takes you to the existing
 creation workspace at `/new`; generated audio remains at `/outputs`.
-The landing page's interactive language examples are visual demonstrations, not
-live audio generation. Actual dubbing happens in the studio.
+The landing page loads voice sample text from the backend and generates playable
+voice previews on request. Actual video dubbing happens in the studio.
+
+For the single-worker hackathon limits and remaining access-control decisions,
+see [demo safeguards](backend/DEMO_SAFEGUARDS.md).
 
 ## Tech Stack
 
