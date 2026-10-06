@@ -45,7 +45,7 @@ export function TopHeader() {
         className="flex gap-2 px-4 pb-3 md:hidden"
       >
         {[
-          { to: "/", label: "New dub" },
+          { to: "/new", label: "New dub" },
           { to: "/outputs", label: "Outputs" },
         ].map(({ to, label }) => (
           <NavLink

@@ -125,7 +125,7 @@ export function Outputs() {
             </Button>
           ) : (
             <Button asChild>
-              <Link to="/">Create your first dub</Link>
+              <Link to="/new">Create your first dub</Link>
             </Button>
           )
         }
@@ -177,7 +177,7 @@ export function Outputs() {
                   Refresh
                 </Button>
                 <Button asChild>
-                  <Link to="/">
+                  <Link to="/new">
                     <Plus data-icon="inline-start" />
                     New dub
                   </Link>
@@ -213,7 +213,7 @@ export function Outputs() {
                       playRequest={playTarget === selected.id ? playRequest : 0} />
                   </div>
                 ) : (
-                  <p className="mt-4 text-sm text-muted-foreground">Audio is not available for this output. <Link className="font-medium text-accent-foreground underline underline-offset-4" to="/">Create a new dub</Link> to try again.</p>
+                  <p className="mt-4 text-sm text-muted-foreground">Audio is not available for this output. <Link className="font-medium text-accent-foreground underline underline-offset-4" to="/new">Create a new dub</Link> to try again.</p>
                 )}
               </div>
             </section>

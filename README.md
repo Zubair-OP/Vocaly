@@ -54,6 +54,11 @@ npm run dev
 
 The frontend runs on **http://localhost:5173** and proxies API calls to the backend.
 
+The public landing page is at `/`. **Open Studio** takes you to the existing
+creation workspace at `/new`; generated audio remains at `/outputs`.
+The landing page's interactive language examples are visual demonstrations, not
+live audio generation. Actual dubbing happens in the studio.
+
 ## Tech Stack
 
 | Layer        | Tool                    |

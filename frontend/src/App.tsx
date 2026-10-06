@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { QuickDub } from "@/pages/QuickDub";
 import { Outputs } from "@/pages/Outputs";
 import { GeneratingAudio } from "@/pages/GeneratingAudio";
+import { Landing } from "@/pages/Landing";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -20,7 +21,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<QuickDub />} />
+          <Route path="/" element={<Landing />} />
           <Route path="/new" element={<QuickDub />} />
           <Route
             path="*"
@@ -34,7 +35,7 @@ function App() {
                     create a dub.
                   </p>
                   <Button asChild>
-                    <Link to="/">Back to workspace</Link>
+                    <Link to="/new">Back to workspace</Link>
                   </Button>
                 </div>
               </AppShell>

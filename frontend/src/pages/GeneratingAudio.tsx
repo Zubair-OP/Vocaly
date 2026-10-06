@@ -50,7 +50,7 @@ export function GeneratingAudio() {
             subtitle="Follow your dub from source video to translated audio."
             backAction={
               <Button variant="link" asChild className="mb-4 px-0">
-                <Link to="/">Back to new dub</Link>
+                <Link to="/new">Back to new dub</Link>
               </Button>
             }
           />
@@ -108,7 +108,7 @@ export function GeneratingAudio() {
                       again.
                     </p>
                     <Button asChild className="self-start">
-                      <Link to="/">Create a new dub</Link>
+                      <Link to="/new">Create a new dub</Link>
                     </Button>
                   </>
                 )}
@@ -124,7 +124,7 @@ export function GeneratingAudio() {
                   appears directly in your new dub while the audio is created.
                 </p>
                 <Button asChild>
-                  <Link to="/">
+                  <Link to="/new">
                     Create a dub
                     <ArrowRight />
                   </Link>

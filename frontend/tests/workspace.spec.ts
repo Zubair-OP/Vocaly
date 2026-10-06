@@ -45,7 +45,7 @@ for (const width of [320, 375, 768, 1024, 1280, 1440])
     await mock(page);
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
-    await page.goto("/");
+    await page.goto("/new");
     await expect(
       page.getByRole("heading", { name: "Give your video a new voice.", exact: true }),
     ).toBeVisible();
@@ -86,7 +86,7 @@ test("validation, language selection, generation and error recovery", async ({
   page,
 }) => {
   await mock(page);
-  await page.goto("/");
+  await page.goto("/new");
   await page
     .getByRole("button", { name: "Generate audio" })
     .click();
@@ -258,7 +258,7 @@ for (const width of [375, 1440]) {
       await route.fulfill({ json: { status: "completed", output: outputs[0] } });
     });
     try {
-      await page.goto("/");
+      await page.goto("/new");
       await page.getByLabel("YouTube URL").fill("https://youtu.be/dQw4w9WgXcQ");
       await page.getByRole("button", { name: "Generate audio", exact: true }).scrollIntoViewIfNeeded();
       const dock = page.locator(".generation-dock");

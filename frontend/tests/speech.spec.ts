@@ -12,7 +12,7 @@ test("ten languages, preview and narration style reach the API", async ({ page }
     await route.fulfill({ json: { audio_url: "/preview.mp3" } });
   });
   await page.route("**/preview.mp3", (route) => route.fulfill({ contentType: "audio/mpeg", body: Buffer.alloc(0) }));
-  await page.goto("/");
+  await page.goto("/new");
   await page.getByLabel("To (target)", { exact: true }).click();
   await expect(page.getByRole("option")).toHaveCount(10);
   await page.getByRole("option", { name: "French", exact: true }).click();
@@ -27,7 +27,7 @@ test("ten languages, preview and narration style reach the API", async ({ page }
 
 test("reference mode requires upload and speaker permission", async ({ page }) => {
   await page.route("**/api/voices", (route) => route.fulfill({ json: { voices: { ur: [{ id: "ur-PK-UzmaNeural", name: "Uzma" }], en: [{ id: "en-US-GuyNeural", name: "Guy" }] }, reference_voice: { available: true, languages: ["en"] } } }));
-  await page.goto("/");
+  await page.goto("/new");
   await page.getByLabel("Speech mode", { exact: true }).click();
   await page.getByRole("option", { name: "Reference voice (experimental)", exact: true }).click();
   await expect(page.getByLabel("Speaker reference WAV", { exact: true })).toBeVisible();
@@ -54,7 +54,7 @@ test("reference upload and generation complete through the form", async ({ page 
     expect(payload.target_language).toBe("en");
     return route.fulfill({ json: { status: "completed", audio_url: "/reference.wav", translated_text: "Hello", job_id: "test", output: {} } });
   });
-  await page.goto("/");
+  await page.goto("/new");
   await page.getByLabel("YouTube URL").fill("https://youtu.be/abcdefghijk");
   await page.getByLabel("To (target)", { exact: true }).click();
   await page.getByRole("option", { name: "English", exact: true }).click();
