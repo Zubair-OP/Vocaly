@@ -5,6 +5,20 @@ test.beforeEach(async ({ page }) => {
   await page.route("https://img.youtube.com/**", (route) => route.abort());
 });
 
+test("mobile voice settings expand without losing the chosen style", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.route("**/api/voices", route => route.fulfill({ json: { voices: { ur: [{ id: "ur-PK-UzmaNeural", name: "Uzma" }] } } }));
+  await page.goto("/new");
+  await expect(page.getByLabel("Narration style", { exact: true })).not.toBeVisible();
+  await page.getByRole("button", { name: /Voice settings/ }).click();
+  await page.getByLabel("Narration style", { exact: true }).click();
+  await page.getByRole("option", { name: "Calm", exact: true }).click();
+  await page.getByRole("button", { name: /Hide voice settings/ }).click();
+  await expect(page.getByRole("button", { name: /Voice settings.*calm/ })).toBeVisible();
+  await page.getByRole("button", { name: /Voice settings/ }).click();
+  await expect(page.getByLabel("Narration style", { exact: true })).toContainText("Calm");
+});
+
 test("ten languages, preview and narration style reach the API", async ({ page }) => {
   await page.route("**/api/voices", (route) => route.fulfill({ json: { voices: { ur: [{ id: "ur-PK-UzmaNeural", name: "Uzma" }], fr: [{ id: "fr-FR-DeniseNeural", name: "Denise" }] }, reference_voice: { available: false, languages: [] } } }));
   await page.route("**/api/voice-preview", async (route) => {

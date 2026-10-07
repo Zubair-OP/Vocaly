@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,8 @@ interface Props {
 }
 
 export function SpeechControls({ language, voice, disabled, referenceAvailable, referenceLanguages, settings, onChange }: Props) {
+  const [expanded, setExpanded] = useState(false);
+  const optionsId = useId();
   const [previewUrl, setPreviewUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -48,6 +50,10 @@ export function SpeechControls({ language, voice, disabled, referenceAvailable, 
   }
 
   return <>
+    <Button type="button" variant="outline" className="speech-options-toggle" aria-expanded={expanded} aria-controls={optionsId} onClick={() => setExpanded(!expanded)}>
+      {expanded ? "Hide voice settings" : "Voice settings"} · {settings.speech_mode === "reference" ? "Reference" : settings.narration_style}
+    </Button>
+    <div className="speech-options" id={optionsId} data-expanded={expanded}>
     <Field className="gap-2">
       <FieldLabel htmlFor="speech-mode">Speech mode</FieldLabel>
       <Select value={settings.speech_mode} disabled={disabled} onValueChange={(value) => onChange({ ...settings, speech_mode: value as SpeechSettings["speech_mode"] })}>
@@ -72,9 +78,6 @@ export function SpeechControls({ language, voice, disabled, referenceAvailable, 
         </Select>
         <p className="text-xs text-muted-foreground">Adjusts pace and pitch; does not copy the original speaker’s emotion.</p>
       </Field>
-      <Button type="button" variant="outline" disabled={disabled || loading || !voice} onClick={() => void preview()}>{loading ? "Creating preview..." : "Preview voice"}</Button>
-      {previewUrl && <AudioPlayer key={previewUrl} autoPlay src={previewUrl} label="Voice preview" />}
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     </> : <Field className="gap-2">
       <FieldLabel htmlFor="speaker-reference">Speaker reference WAV</FieldLabel>
       <Input id="speaker-reference" type="file" accept=".wav,audio/wav" disabled={disabled} onChange={(event) => onChange({ ...settings, referenceFile: event.target.files?.[0] || null })} />
@@ -82,5 +85,11 @@ export function SpeechControls({ language, voice, disabled, referenceAvailable, 
       <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={settings.speaker_consent} disabled={disabled} onChange={(event) => onChange({ ...settings, speaker_consent: event.target.checked })} />I have the speaker’s permission to use this voice.</label>
       {!referenceLanguages.includes(language) && <p role="alert" className="text-sm text-destructive">Choose another target language for reference voice mode.</p>}
     </Field>}
+    </div>
+    {settings.speech_mode === "standard" && <>
+      <Button type="button" variant="outline" disabled={disabled || loading || !voice} onClick={() => void preview()}>{loading ? "Creating preview..." : "Preview voice"}</Button>
+      {previewUrl && <AudioPlayer key={previewUrl} autoPlay src={previewUrl} label="Voice preview" />}
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+    </>}
   </>;
 }

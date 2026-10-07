@@ -29,6 +29,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { StatusBadge } from "./StatusBadge";
+import { AudioDuration } from "./AudioDuration";
 import { fmtDate, langName } from "@/lib/format";
 import type { OutputItem } from "@/lib/api";
 
@@ -198,6 +199,7 @@ export function OutputsTable({
               <span className="mt-1 block text-xs text-muted-foreground">
                 {langName(output.sourceLanguage)} &rarr;{" "}
                 {langName(output.targetLanguage)}
+                {output.status === "completed" && <> · <AudioDuration src={output.audioUrl} /></>}
               </span>
             </button>
             <div className="flex items-center justify-between gap-3">
@@ -300,7 +302,7 @@ export function OutputsTable({
                   </TableCell>
 
                   <TableCell className="text-xs text-muted-foreground">
-                    —
+                    <AudioDuration src={output.status === "completed" ? output.audioUrl : ""} />
                   </TableCell>
 
                   <TableCell>

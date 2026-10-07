@@ -32,7 +32,7 @@ export function ProcessFilm() {
   }, [playing, visible, reducedMotion]);
 
   return <section className="landing-section landing-container process-section" id="how-it-works" tabIndex={-1}>
-    <Reveal className="landing-heading-row"><SectionHeading number="01" label="THE FLOW" title={<>Link. Language. <span>Let it play.</span></>} /><p className="process-section-note">Three steps. A whole new audience.</p></Reveal>
+    <Reveal className="landing-heading-row"><SectionHeading number="02" label="THE FLOW" title={<>Link. Language. <span>Let it play.</span></>} /><p className="process-section-note">Three steps. A whole new audience.</p></Reveal>
     <Reveal>
       <div ref={ref} className="process-film-shell" data-playing={playing && visible && !reducedMotion}>
         <div className="process-film">

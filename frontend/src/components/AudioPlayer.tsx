@@ -3,6 +3,8 @@ import { Loader2, Pause, Play, RotateCcw, Volume2, VolumeX } from "lucide-react"
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { audioTime, loadWaveform } from "@/lib/audio-waveform";
+import { useQueryClient } from "@tanstack/react-query";
+import { audioDurationKey } from "@/lib/use-audio-duration";
 
 interface AudioPlayerProps {
   src: string;
@@ -18,6 +20,11 @@ export function AudioPlayer(props: AudioPlayerProps) {
 }
 
 function AudioPlayerSource({ src, label, autoPlay = false, playRequest = 0 }: AudioPlayerProps) {
+  const queryClient = useQueryClient();
+  function recordDuration(value: number) {
+    setDuration(Number.isFinite(value) ? value : 0);
+    if (Number.isFinite(value) && value > 0) queryClient.setQueryData(audioDurationKey(src), value);
+  }
   const audioRef = useRef<HTMLAudioElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const controls = useRef<{ play: () => Promise<void>; redraw: () => void } | null>(null);
@@ -184,8 +191,8 @@ function AudioPlayerSource({ src, label, autoPlay = false, playRequest = 0 }: Au
   return (
     <div className="audio-player" role="group" aria-label={label}>
       <audio ref={audioRef} src={src} preload="metadata" hidden
-        onLoadedMetadata={event => { const value = event.currentTarget.duration; setDuration(Number.isFinite(value) ? value : 0); }}
-        onDurationChange={event => { const value = event.currentTarget.duration; setDuration(Number.isFinite(value) ? value : 0); }}
+        onLoadedMetadata={event => recordDuration(event.currentTarget.duration)}
+        onDurationChange={event => recordDuration(event.currentTarget.duration)}
         onTimeUpdate={event => { setPosition(event.currentTarget.currentTime); controls.current?.redraw(); }}
         onPlay={event => { setPlaying(true); document.dispatchEvent(new CustomEvent("vocally:audio-play", { detail: event.currentTarget })); controls.current?.redraw(); }}
         onPlaying={() => { setWaiting(false); controls.current?.redraw(); }}

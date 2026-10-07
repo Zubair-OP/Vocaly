@@ -50,6 +50,32 @@ async function setup(page: Page) {
   await expect(page.getByRole("slider", { name: "Seek audio" })).toBeEnabled();
 }
 
+test("saved outputs display real media durations in the library", async ({ page }) => {
+  await setup(page);
+  await expect(page.locator('table [aria-label="Audio duration"]').first()).toHaveText("0:10");
+  await expect(page.locator('table [aria-label="Audio duration"]').nth(1)).toHaveText("0:10");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator('article [aria-label="Audio duration"]').first()).toBeVisible();
+  await expect(page.locator('article [aria-label="Audio duration"]').first()).toHaveText("0:10");
+});
+
+test("hero plays real media and switching languages removes the old player", async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await page.route("**/api/voices", route => route.fulfill({ json: { voices: { en: [{ id: "en-voice", name: "English" }], ur: [{ id: "ur-voice", name: "Urdu" }] }, preview_text: { en: "Hello", ur: "Urdu sample" } } }));
+  await page.route("**/api/voice-preview", route => route.fulfill({ json: { audio_url: "/track-hero.wav" } }));
+  await page.route("**/track-*.wav", serveAudio);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Hear English", exact: true }).click();
+  const player = page.getByRole("group", { name: "English hero voice preview", exact: true });
+  await expect.poll(() => player.locator("audio").evaluate((a: HTMLAudioElement) => a.currentTime)).toBeGreaterThan(0);
+  await expect.poll(() => page.locator('.cinematic-console').evaluate(el => el.getBoundingClientRect().bottom)).toBeLessThanOrEqual(768);
+  await player.getByRole("button", { name: "Pause audio", exact: true }).click();
+  await expect.poll(() => player.locator("audio").evaluate((a: HTMLAudioElement) => a.paused)).toBe(true);
+  await page.getByRole("group", { name: "Preview a language", exact: true }).getByRole("radio", { name: "UR Urdu" }).check();
+  await expect(player).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Hear Urdu", exact: true })).toBeEnabled();
+});
+
 test("waveform reacts to real loudness, freezes on pause, and respects reduced motion", async ({ page }) => {
   await setup(page);
   const canvas = page.locator(".audio-waveform canvas");

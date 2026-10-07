@@ -31,19 +31,19 @@ export function Landing() {
     <LandingNav />
     <main id="main-content" tabIndex={-1}>
       <CinematicHero />
-      <section className="landing-capabilities" id="features" tabIndex={-1} aria-label="Product capabilities">
-        <div className="landing-container"><span className="capability-intro">ONE LINK.<br /><strong>MORE POSSIBILITIES.</strong></span><span><Globe2 />{LANGUAGES.length} languages</span><span><Mic2 />Neural voices</span><span><SlidersHorizontal />3 narration styles</span><span><AudioLines />MP3 downloads</span></div>
-      </section>
-      <ProcessFilm />
-      <StudioPreview />
       <section className="landing-section landing-container landing-language-section" id="demo" tabIndex={-1}>
         <Reveal className="language-story">
-          <SectionHeading number="03" label="TRY A DIFFERENT FREQUENCY" title={<>One story.<br /><span>Ten ways<br />to tell it.</span></>} />
+          <SectionHeading number="01" label="HEAR THE DIFFERENCE" title={<>One story.<br /><span>Ten ways<br />to tell it.</span></>} />
           <div className="language-story-note"><span className="language-story-number">10</span><div>languages.<br /><span>Pick yours. Watch it change.</span></div></div>
           <div className="language-orbits" aria-hidden="true"><span>EN</span><span>ES</span><span>日本語</span><span>اردو</span><AudioLines strokeWidth={.7} /></div>
         </Reveal>
         <Reveal className="language-demo-shell" delay={100}><VoiceDemo expanded /></Reveal>
       </section>
+      <section className="landing-capabilities" id="features" tabIndex={-1} aria-label="Product capabilities">
+        <div className="landing-container"><span className="capability-intro">ONE LINK.<br /><strong>MORE POSSIBILITIES.</strong></span><span><Globe2 />{LANGUAGES.length} languages</span><span><Mic2 />Neural voices</span><span><SlidersHorizontal />3 narration styles</span><span><AudioLines />MP3 downloads</span></div>
+      </section>
+      <ProcessFilm />
+      <StudioPreview />
       <AudienceVisuals />
       <section className="landing-final landing-section">
         <div className="final-frequency" aria-hidden="true"><Waveform variant={3} /></div>

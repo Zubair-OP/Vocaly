@@ -160,8 +160,6 @@
 .language-option.is-selected { background: #b7a0e81a; color: #d1bfed; box-shadow: inset 0 0 0 1px #c3a6ee30; }
 .language-option.is-selected > span { color: #bb9ce8; }
 .voice-demo-note { display: flex; justify-content: space-between; align-items: center; margin-top: 7px; font-size: 7px; color: #a09aa9; }
-.voice-demo-note button { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; }
-.voice-demo-note button:hover { background: #ffffff0a; }
 .voice-demo-note svg { width: 12px; height: 12px; }
 .landing-capabilities { border-block: 1px solid var(--landing-line); }
 .landing-capabilities > div { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding-block: 30px; }
@@ -320,7 +318,6 @@
   .voice-translation p { font-size: 23px; }
   .language-option { min-height: 44px; padding-inline: 11px; font-size: 10px; }
   .voice-demo-note { font-size: 8px; }
-  .voice-demo-note button { width: 44px; height: 44px; }
   .landing-capabilities > div { display: grid; grid-template-columns: 1fr 1fr; gap: 24px 10px; padding-block: 26px; }
   .landing-capabilities .capability-intro { grid-column: 1 / -1; }
   .landing-capabilities span { font-size: 10px; }
@@ -946,6 +943,8 @@ button:not([role=tab]):active { transform:scale(.98); }
 .audio-player-options > button { width: 32px; height: 32px; color: #77768b; }
 .audio-player-options .audio-speed { width: 78px; height: 32px; min-width: 0; padding: 0 9px; border-radius: 8px; border-color: #e6e5ef; background: #fff; box-shadow: none; color: #51516c; font-size: 12px; }
 .voice-settings-grid > .audio-player { grid-column: 1 / -1; }
+.speech-options { display: contents; }
+.voice-settings-grid > .speech-options-toggle { display: none; }
 .creation-section .audio-player-options .audio-speed { height: 32px; }
 @media (max-width: 539px) {
   .audio-player { padding: 8px 10px; }
@@ -954,4 +953,72 @@ button:not([role=tab]):active { transform:scale(.98); }
   .audio-player-toolbar { padding-left: 0; gap: 6px; }
   .audio-player-options { gap: 0; }
   .audio-player-options .audio-speed { width: 68px; }
+}
+
+/* Keep the real audio interaction inside the first laptop viewport. */
+.cinematic-content { min-height: min(820px, 100svh); grid-template-rows: 1fr auto; padding-top: 118px; padding-bottom: 24px; gap: 20px 60px; }
+.cinematic-hero .hero-copy { padding-bottom: 0; }
+.cinematic-hero .hero-copy h1 { font-size: clamp(64px, 5.6vw, 86px); margin-block: 18px; }
+.cinematic-hero .hero-actions { margin-top: 24px; }
+.cinematic-corner { top: 114px; }
+.cinematic-caption { margin-bottom: 24px; }
+.cinematic-caption > span { font-size: 12px; }
+.cinematic-console { gap: 20px; min-height: 130px; }
+.cinematic-console-title { font-size: 10px; letter-spacing: .06em; }
+.cinematic-languages { flex-wrap: wrap; }
+.cinematic-languages label { font-size: 12px; padding: 12px 10px; }
+.cinematic-languages label > span:first-of-type { font-size: 10px; }
+.hero-sample-player { flex: 1; min-width: 260px; }
+.hero-sample-player > button { width: 100%; min-height: 48px; }
+.hero-sample-player > p, .voice-demo > [role] { font-size: 13px; line-height: 1.5; margin-top: 8px; color: var(--landing-text); }
+.cinematic-image { animation: none; }
+.landing .audio-player { --waveform-muted: #76658f; background: #292332; border: 1px solid #b9a1e133; }
+.landing .audio-time, .landing .audio-time > span { color: #d3c6e3; font-size: 12px; }
+.landing .audio-player-options > button { color: #d3c6e3; }
+.landing .audio-player-options .audio-speed { background: #211d29; color: #eee6f7; border-color: #76658f; }
+.landing .audio-player-options > button:hover { background: #40364e; color: #f3f1f7; }
+.landing .audio-player [role=alert] { color: #f4afba; }
+.landing .voice-demo-note { display: flex; flex-direction: column; align-items: stretch; gap: 14px; margin-top: 24px; font-size: 13px; line-height: 1.5; }
+.landing .voice-demo-note > button { min-height: 48px; width: 100%; font-size: 14px; white-space: nowrap; }
+.landing .voice-demo-topline, .landing .voice-label, .landing .voice-track-footer { font-size: 11px; }
+.landing .voice-source p { font-size: 14px; }
+.landing .language-option { min-height: 44px; font-size: 12px; padding: 9px 12px; }
+.landing .language-option > span { font-size: 10px; }
+.landing .voice-demo-expanded { padding-bottom: 24px; }
+@media (min-width: 768px) and (max-height: 800px) {
+  .cinematic-content { padding-top: 108px; gap: 14px 45px; }
+  .cinematic-hero .hero-copy h1 { font-size: clamp(60px, 5.1vw, 74px); margin-block: 14px; }
+  .cinematic-corner { display: none; }
+  .cinematic-console { min-height: 118px; padding: 10px 16px; }
+}
+@media (min-width: 768px) and (max-width: 1100px) {
+  .cinematic-console { flex-wrap: wrap; }
+  .hero-sample-player { min-width: 250px; }
+}
+@media (max-width: 767px) {
+  .cinematic-content { min-height: auto; grid-template-rows: auto auto auto; padding-top: 132px; gap: 22px; }
+  .cinematic-corner { display: none; }
+  .cinematic-hero .hero-copy h1 { font-size: clamp(52px, 14vw, 76px); }
+  .cinematic-hero .hero-copy > p { font-size: 14px; }
+  .cinematic-hero .landing-text-link { font-size: 12px; }
+  .cinematic-hero .hero-actions { gap: 16px; flex-wrap: wrap; }
+  .cinematic-caption { margin-bottom: 0; }
+  .cinematic-console { min-height: 0; gap: 14px; }
+  .cinematic-languages label { padding: 10px 7px; font-size: 11px; }
+  .hero-sample-player { min-width: 0; width: 100%; flex-basis: 100%; }
+  .landing-cinematic .landing-language-section { gap: 28px; }
+  .landing-language-section .language-orbits { display: none; }
+  .landing-language-section .language-story-note { margin-top: 20px; }
+  .landing .voice-demo-topline { font-size: 10px; }
+  .creation-section { padding: 18px 16px; gap: 14px; }
+  .creation-section-label h2 { margin-top: 5px; }
+  .creation-section-label p { display: none; }
+  .creation-section-number { font-size: 11px; }
+  .creation-section [data-slot=field-label] { font-size: 13px; }
+  .creation-footer { padding: 16px; }
+  .generation-dock { min-height: 112px; }
+  .generation-actions { gap: 12px; }
+  .voice-settings-grid > .speech-options-toggle { display: flex; white-space: normal; }
+  .speech-options { display: none; grid-column: 1 / -1; }
+  .speech-options[data-expanded=true] { display: grid; gap: 16px; }
 }

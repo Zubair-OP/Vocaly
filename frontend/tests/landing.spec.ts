@@ -44,15 +44,16 @@ test("language previews load backend data and generate audio", async ({ page }) 
   await hero.getByRole("radio", { name: "UR Urdu" }).focus();
   await page.keyboard.press("ArrowRight");
   await expect(hero.getByRole("radio", { name: "ES Spanish" })).toBeChecked();
-  await page.getByRole("button", { name: "Pause cinematic animation" }).click();
-  await expect(page.locator(".cinematic-hero")).toHaveAttribute("data-paused", "true");
+  await hero.getByRole("radio", { name: "JA Japanese" }).check();
+  await page.getByRole("button", { name: "Hear Japanese", exact: true }).click();
+  await expect(page.getByRole("group", { name: "Japanese hero voice preview", exact: true }).locator("audio")).toHaveAttribute("src", "/api/audio/test-preview.mp3");
   const all = page.getByRole("group", { name: "Explore all languages" });
   await expect(all.getByRole("radio")).toHaveCount(10);
   await all.getByRole("radio", { name: "JA Japanese" }).check();
   await expect(page.locator('.voice-demo-expanded .voice-translation p')).toHaveAttribute("lang", "ja");
   await expect(page.locator('.voice-demo-expanded .voice-translation p')).toHaveText("Backend sample text");
   await page.getByRole("button", { name: "Generate voice preview" }).click();
-  await expect(page.getByLabel("Japanese voice preview", { exact: true })).toHaveAttribute("src", "/api/audio/test-preview.mp3");
+  await expect(page.getByRole("group", { name: "Japanese voice preview", exact: true }).locator("audio")).toHaveAttribute("src", "/api/audio/test-preview.mp3");
   await expect(page.locator(".voice-demo")).toHaveAttribute("data-animated", "false");
 });
 
