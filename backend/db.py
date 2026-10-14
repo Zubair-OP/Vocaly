@@ -15,6 +15,7 @@ from pymongo.errors import PyMongoError
 
 DATABASE_NAME = os.getenv("MONGO_DATABASE", "vocally")
 OUTPUTS_COLLECTION = "outputs"
+AUDIO_ASSETS_COLLECTION = "audio_assets"
 
 _client: AsyncMongoClient | None = None
 
@@ -48,6 +49,10 @@ def outputs_collection():
     return get_db()[OUTPUTS_COLLECTION]
 
 
+def audio_assets_collection():
+    return get_db()[AUDIO_ASSETS_COLLECTION]
+
+
 async def connect_to_mongo() -> None:
     """Ping MongoDB and make sure the output indexes exist."""
     try:
@@ -55,8 +60,42 @@ async def connect_to_mongo() -> None:
         await client.admin.command("ping")
         await outputs_collection().create_index([("created_at", ASCENDING)])
         await outputs_collection().create_index([("id", ASCENDING)], unique=True)
+        await audio_assets_collection().create_index([("filename", ASCENDING)], unique=True)
     except PyMongoError as exc:
         raise DatabaseUnavailable("Could not connect to MongoDB.") from exc
+
+
+async def save_audio_asset(asset: dict[str, Any]) -> None:
+    document = {**asset, "synced_at": datetime.now(timezone.utc)}
+    try:
+        await audio_assets_collection().update_one(
+            {"filename": document["filename"]},
+            {"$set": document, "$setOnInsert": {"created_at": datetime.now(timezone.utc)}},
+            upsert=True,
+        )
+    except PyMongoError as exc:
+        raise DatabaseUnavailable("Could not save Cloudinary audio metadata.") from exc
+
+
+async def get_audio_asset(filename: str) -> dict[str, Any] | None:
+    try:
+        return await audio_assets_collection().find_one({"filename": filename})
+    except PyMongoError as exc:
+        raise DatabaseUnavailable("Could not load Cloudinary audio metadata.") from exc
+
+
+async def delete_audio_asset(filename: str) -> None:
+    try:
+        await audio_assets_collection().delete_one({"filename": filename})
+    except PyMongoError as exc:
+        raise DatabaseUnavailable("Could not delete Cloudinary audio metadata.") from exc
+
+
+async def list_audio_assets() -> list[dict[str, Any]]:
+    try:
+        return await audio_assets_collection().find({}).to_list(length=None)
+    except PyMongoError as exc:
+        raise DatabaseUnavailable("Could not list Cloudinary audio metadata.") from exc
 
 
 async def close_mongo_connection() -> None:

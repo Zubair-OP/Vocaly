@@ -18,7 +18,7 @@ if hasattr(sys.stdout, "reconfigure"):
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
@@ -28,7 +28,7 @@ from services.transcript import validate_youtube_url, fetch_transcript, fetch_vi
 from services.translate import translate_text, summarize_text
 from services.tts import generate_speech, voice_catalogue, validate_voice
 from services.languages import LANGUAGE_NAMES, PREVIEW_TEXT
-from services import outputs as output_service
+from services import outputs as output_service, cloudinary_storage
 
 load_dotenv()
 
@@ -47,6 +47,14 @@ async def lifespan(_: FastAPI):
     try:
         await db.connect_to_mongo()
         print(f"[db] Connected to MongoDB -> {db.DATABASE_NAME}.{db.OUTPUTS_COLLECTION}")
+        if cloudinary_storage.is_configured():
+            try:
+                synced = await output_service.sync_local_audio(OUTPUT_DIR)
+                print(f"[Cloudinary] Startup sync complete: {synced} audio file(s) uploaded.")
+            except (cloudinary_storage.CloudinaryStorageError, db.DatabaseUnavailable) as exc:
+                print(f"[Cloudinary] Startup sync incomplete ({type(exc).__name__}); it will retry on next startup.")
+        else:
+            print("[Cloudinary] Startup sync skipped: Cloudinary credentials are incomplete.")
     except db.DatabaseUnavailable as exc:
         print(f"[db] WARNING — MongoDB unavailable: {exc}")
     yield
@@ -111,6 +119,18 @@ def _db_error(exc: db.DatabaseUnavailable) -> HTTPException:
     return HTTPException(status_code=503, detail={"code": "output_storage_unavailable", "message": "Output storage is unavailable. Please try again shortly."})
 
 
+def _require_cloudinary() -> None:
+    if not cloudinary_storage.is_configured():
+        raise HTTPException(status_code=503, detail={"code": "audio_storage_not_configured", "message": "Cloud audio storage is not configured. Set CLOUDINARY_CLOUD_NAME and CLOUDINARY_API_SECRET in backend/.env."})
+
+
+async def _upload_generated_audio(filename: str) -> None:
+    try:
+        await cloudinary_storage.upload_audio_file(Path(OUTPUT_DIR) / filename)
+    except cloudinary_storage.CloudinaryStorageError as exc:
+        raise HTTPException(status_code=503, detail={"code": "audio_storage_unavailable", "message": "Audio was generated locally but could not be synchronized to cloud storage. Please retry shortly."}) from exc
+
+
 # ── Routes ─────────────────────────────────────────────────────────────
 
 @app.get("/api/health")
@@ -131,11 +151,13 @@ async def get_voices():
 
 @app.post("/api/voice-preview")
 async def api_voice_preview(req: VoicePreviewRequest):
+    _require_cloudinary()
     if not await validate_voice(req.target_language, req.voice):
         raise HTTPException(400, "Choose a voice available in the selected language.")
     result = await generate_speech(PREVIEW_TEXT[req.target_language], req.voice, "preview", req.target_language, OUTPUT_DIR, req.narration_style)
     if "error" in result:
         raise HTTPException(502, detail={"code": result.get("error_code", "speech_generation_failed"), "message": result["error"]})
+    await _upload_generated_audio(result["audio_filename"])
     return {"audio_url": f'/api/audio/{result["audio_filename"]}', "voice": result.get("voice", req.voice)}
 
 
@@ -168,6 +190,7 @@ async def api_generate(req: GenerateRequest):
     Translate transcript, generate TTS audio, and persist the output in MongoDB.
     Returns translated text, audio URL, and the saved output document.
     """
+    _require_cloudinary()
     if req.target_language not in LANGUAGE_NAMES:
         raise HTTPException(400, "Choose a supported target language.")
     if not await validate_voice(req.target_language, req.voice):
@@ -220,6 +243,12 @@ async def api_generate(req: GenerateRequest):
             pass
         raise HTTPException(status_code=502, detail={"code": "summary_audio_generation_failed", "message": "The summary was created, but its audio could not be generated. Please try again."})
 
+    try:
+        await _upload_generated_audio(tts_result["audio_filename"])
+        await _upload_generated_audio(summary_tts_result["audio_filename"])
+    except HTTPException:
+        raise
+
     audio_filename = tts_result["audio_filename"]
     audio_url = f"/api/audio/{audio_filename}"
     summary_audio_filename = summary_tts_result["audio_filename"]
@@ -255,7 +284,7 @@ async def api_generate(req: GenerateRequest):
     except db.DatabaseUnavailable as exc:
         for generated_url in (audio_url, summary_audio_url):
             try:
-                await asyncio.to_thread(output_service.remove_audio, generated_url, OUTPUT_DIR)
+                await output_service.remove_audio(generated_url, OUTPUT_DIR)
             except output_service.AudioCleanupFailed:
                 pass
         raise _db_error(exc)
@@ -357,7 +386,13 @@ async def api_clear_outputs():
 
 @app.get("/api/audio/{filename}")
 async def serve_audio(filename: str):
-    """Serve generated MP3 file."""
+    """Redirect to Cloudinary, retaining local delivery as a migration fallback."""
+    try:
+        asset = await cloudinary_storage.get_audio_asset(filename)
+    except cloudinary_storage.CloudinaryStorageError as exc:
+        raise HTTPException(status_code=503, detail={"code": "audio_storage_unavailable", "message": "Audio storage is temporarily unavailable."}) from exc
+    if asset:
+        return RedirectResponse(asset["secure_url"], status_code=307)
     directory = Path(OUTPUT_DIR).resolve()
     filepath = (directory / filename).resolve()
     if filepath.parent != directory or filepath.suffix not in {".mp3", ".wav"}:

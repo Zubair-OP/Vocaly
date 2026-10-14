@@ -94,6 +94,8 @@ const GENERATION_ERRORS: Record<string, string> = {
   translation_failed: 'The transcript was fetched, but translation failed. Please try again.',
   audio_generation_failed: 'Translation finished, but the speech service could not generate audio. Try again or choose another voice.',
   output_storage_unavailable: 'Your audio was generated, but it could not be saved. Check the database connection and try again.',
+  audio_storage_not_configured: 'Cloud audio storage is not configured. Add CLOUDINARY_CLOUD_NAME and CLOUDINARY_API_SECRET to backend/.env, then restart the backend.',
+  audio_storage_unavailable: 'The audio was generated, but Cloudinary could not store it. Check the Cloudinary configuration and connection, then try again.',
   speech_provider_unavailable: 'Microsoft Edge TTS is unavailable and no fallback provider is configured. Configure a Gemini API key and try again.',
   speech_quota_exceeded: 'Gemini TTS has reached its API quota. Check your Gemini API quota and try again.',
   speech_generation_failed: 'Both speech providers failed to create the audio. Check your Gemini API connection and quota, then try again.',

@@ -100,9 +100,11 @@ function AudioPlayerSource({ src, label, autoPlay = false, playRequest = 0 }: Au
     function connect() {
       if (graphAttempted) return;
       graphAttempted = true;
-      // Our /api/audio files are same-origin. Non-CORS remote media would be
-      // silenced by a MediaElementSource, so leave its native playback intact.
-      if (new URL(src, location.href).origin !== location.origin && !src.startsWith("blob:")) return;
+      const mediaUrl = new URL(src, location.href);
+      // /api/audio redirects to Cloudinary. The original URL is same-origin,
+      // but routing the redirected cross-origin media through Web Audio can
+      // silence it when Cloudinary does not grant media CORS access.
+      if (mediaUrl.pathname.startsWith("/api/audio/") || (mediaUrl.origin !== location.origin && !src.startsWith("blob:"))) return;
       try {
         context = new AudioContext();
         analyser = context.createAnalyser();
