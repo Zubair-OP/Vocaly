@@ -1,4 +1,0 @@
-# Optional Chinese and Japanese reference-voice text processing.
-pypinyin
-cutlet
-unidic-lite

@@ -44,10 +44,8 @@ transaction. Audio shared by another saved output is retained until its last
 record is deleted. Output mutations are serialized within the single-worker demo.
 The bulk-clear endpoint uses the same cleanup rather than bypassing file deletion.
 
-Shared voice catalogues and model weights are not output data and are retained.
-Uploaded speaker-reference samples are separate reusable inputs; existing output
-records do not store their reference IDs, so this action cannot safely infer and
-delete those uploads. Automatic reference/preview expiry remains unimplemented.
+Shared voice catalogues are not output data and are retained. Automatic preview
+expiry remains unimplemented.
 
 Verified with temporary audio files and mocked database operations: successful
 deletion, missing output/file, unsafe paths, shared audio, cleanup failure,

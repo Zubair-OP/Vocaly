@@ -84,7 +84,6 @@ def serialize_output(doc: dict[str, Any]) -> dict[str, Any]:
         "targetLanguage": doc.get("target_language", ""),
         "voice": doc.get("voice", ""),
         "narrationStyle": doc.get("narration_style", "normal"),
-        "speechMode": doc.get("speech_mode", "standard"),
         "originalTranscript": doc.get("original_transcript", ""),
         "translatedText": doc.get("translated_text", ""),
         "summaryText": doc.get("summary_text", ""),

@@ -53,7 +53,7 @@ const outputs = Array.from({ length: 10 }, (_, i) => ({
   status: i === 9 ? "error" : "completed",
 }));
 async function mock(page: Page) {
-  await page.route("**/api/voices", (route) => route.fulfill({ json: { voices: { ur: [{ id: "ur-PK-UzmaNeural", name: "Uzma" }], ar: [{ id: "ar-SA-ZariyahNeural", name: "Zariyah" }] }, reference_voice: { available: false, languages: [] } } }));
+  await page.route("**/api/voices", (route) => route.fulfill({ json: { voices: { ur: [{ id: "ur-PK-UzmaNeural", name: "Uzma" }], ar: [{ id: "ar-SA-ZariyahNeural", name: "Zariyah" }] } } }));
   await page.route("https://img.youtube.com/**", (route) => route.abort());
   await page.route("**/api/outputs?*", (route) =>
     route.fulfill({ json: { outputs } }),

@@ -61,7 +61,7 @@ class DemoLimits:
             return await self.reject(scope, receive, send, 429, "request_limit", "The demo is receiving too many requests. Please try again in a minute.", 60)
         self.requests.append(now)
         path = scope["path"].rstrip("/")
-        costly = scope["method"] == "POST" and path in {"/api/generate", "/api/voice-preview", "/api/fetch-transcript", "/api/speaker-reference"}
+        costly = scope["method"] == "POST" and path in {"/api/generate", "/api/voice-preview", "/api/fetch-transcript"}
         generates = costly and path in {"/api/generate", "/api/voice-preview"}
         if costly and self.active >= self.concurrent_limit:
             return await self.reject(scope, receive, send, 429, "demo_busy", "The demo is busy creating audio. Please try again shortly.", 10)
@@ -80,7 +80,7 @@ class DemoLimits:
                 if not available:
                     return await self.reject(scope, receive, send, 507, "storage_limit", "The demo's audio storage is full. Ask the organizer to free space.")
             if scope["method"] in {"POST", "PUT", "PATCH"}:
-                limit = 5 * 1024 * 1024 if path == "/api/speaker-reference" else 1024 * 1024
+                limit = 1024 * 1024
                 body = bytearray()
                 deadline = time.monotonic() + 30
                 try:

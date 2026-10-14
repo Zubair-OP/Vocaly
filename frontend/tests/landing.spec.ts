@@ -6,7 +6,7 @@ for (const width of [320, 375, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
-    await page.route("**/api/voices", (route) => route.fulfill({ json: { voices: {}, reference_voice: { available: false, languages: [] } } }));
+    await page.route("**/api/voices", (route) => route.fulfill({ json: { voices: {} } }));
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("One video.A worldof voices.");
     for (const id of ["features", "how-it-works", "product", "demo", "use-cases"]) {

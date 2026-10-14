@@ -784,7 +784,6 @@ button:not([role=tab]):active { transform:scale(.98); }
 .voice-settings-grid > button { grid-column: 1 / -1; justify-self: start; min-width: 160px; }
 .voice-settings-grid > audio,
 .voice-settings-grid > [role=alert],
-.voice-settings-grid > :has(#speaker-reference) { grid-column: 1 / -1; }
 .listening-shell {
   min-width: 0;
   padding: 6px;

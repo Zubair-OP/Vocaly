@@ -10,7 +10,7 @@ ownership, durable quotas, and file retention remain open.
 Subsequent update: user-requested per-output deletion now removes both the complete
 record and its generated audio, with shared-file protection and retryable failures.
 The original lifecycle finding is partially resolved; automatic expiry and cleanup
-of separate speaker uploads/previews remain open. See demo safeguards for details.
+of previews remains open. See demo safeguards for details.
 
 **Verdict: suitable as a local, trusted-user MVP; not ready for an untrusted public or multi-user deployment.** The fixes in this review improve correctness and input handling, but do not add authentication, ownership, or resource quotas.
 
@@ -20,9 +20,9 @@ of separate speaker uploads/previews remain open. See demo safeguards for detail
 | --- | --- | --- |
 | Critical for public deployment | No authentication or authorization. `app.py` exposes output list/read/create/delete/clear routes without identity dependencies. `db.py` queries by output ID alone and `clear_outputs()` uses `delete_many({})`. Any reachable caller can read transcripts, replace a known output ID, or erase all output metadata. Audio and reference IDs have no owner checks either. | Introduce authenticated identity and server-assigned ownership. Scope every read, update, delete, audio download, and reference use to that owner. Remove public bulk deletion or make it explicitly administrative. Test cross-user denial. A CORS policy is not an authorization boundary. |
 | High | Unbounded aggregate resource consumption. Generation, preview, transcript retrieval, and reference upload are anonymous. There are no rate, spend, disk, or concurrent-job quotas. The reference inference lock serializes work but permits an unbounded waiting population. JSON requests are parsed before field validation; field limits do not cap the raw request body. | Enforce streamed body limits at ingress, authenticated per-user rate and spend limits, bounded job admission, storage quotas, and provider output limits. Use shared enforcement when running multiple workers. |
-| High | No media lifecycle. Previews and reference WAVs are stored indefinitely. Deleting output metadata does not delete audio; a previously known URL remains usable. Persistence failure after synthesis leaves orphaned audio, and retries repeat billable work. See `app.py` generation/delete routes and `reference_voice.save_reference()`. | Use an owned artifact catalogue, private media access, reference/preview expiry, quota accounting, and a reconciliation/cleanup job. Introduce idempotency and explicit job states before retrying generation. |
+| High | No media lifecycle. Previews are stored indefinitely. Deleting output metadata does not delete audio; a previously known URL remains usable. Persistence failure after synthesis leaves orphaned audio, and retries repeat billable work. See `app.py` generation/delete routes. | Use an owned artifact catalogue, private media access, preview expiry, quota accounting, and a reconciliation/cleanup job. Introduce idempotency and explicit job states before retrying generation. |
 | Medium | Partial availability is reported as healthy. Startup catches database/index setup failures and continues; `/api/health` always returns OK. The client may pay for translation and synthesis before the final database write fails. | Keep liveness separate from readiness, require database/index initialization for readiness, and check storage before admitting jobs. Ensure startup cleanup also runs if initialization fails. |
-| Medium | Expensive generation runs inside HTTP requests. Transcript fetching runs in a thread without an application deadline. XTTS uses process-local model state and an async lock: cancellation of a coroutine awaiting `to_thread()` does not terminate its worker thread, so cancellation can release the lock while inference continues. Multiple API workers also load separate models. | Move durable generation to bounded workers with deadlines, cancellation semantics, retries, and idempotency. Give the model worker sole ownership of inference. Keep request handlers focused on validation, admission, and job status. |
+| Medium | Expensive generation runs inside HTTP requests. Transcript fetching runs in a thread without an application deadline. | Move durable generation to bounded workers with deadlines, cancellation semantics, retries, and idempotency. Keep request handlers focused on validation, admission, and job status. |
 | Medium | Dependencies are not reproducibly locked. Core requirements have no version constraints. `google-generativeai` emits an end-of-support warning in the installed environment. No vulnerability database scan was performed in this review. | Migrate to the maintained Google Gen AI SDK with provider-contract tests. Establish a tested lockfile, automated advisory scanning, and an update process for core and optional speech dependencies. |
 
 ## Architecture assessment
@@ -56,7 +56,7 @@ Result: **29 tests discovered, 28 passed, 1 skipped**. The skip is the optional 
 
 `python -m pip check` passed in the workspace virtual environment. `git diff --check` passed. These establish local compatibility and regression coverage, not the absence of vulnerable dependencies.
 
-No live database, paid translation, live TTS, real XTTS inference, deployment configuration, network perimeter, backup/restore, or load test was exercised. Existing staged frontend and README changes were left intact. No secrets were printed or modified.
+No live database, paid translation, live TTS, deployment configuration, network perimeter, backup/restore, or load test was exercised. Existing staged frontend and README changes were left intact. No secrets were printed or modified.
 
 ## Reference documentation
 

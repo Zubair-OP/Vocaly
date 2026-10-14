@@ -24,7 +24,7 @@ import {
   fetchTranscript,
   generateAudio,
   generationErrorMessage,
-  fetchVoices, uploadSpeakerReference, type VoiceOption,
+  fetchVoices, type VoiceOption,
 } from "@/lib/api";
 import { LANGUAGES, VOICES } from "@/lib/format";
 import {
@@ -77,9 +77,7 @@ export function QuickDub() {
   const [targetLanguage, setTargetLanguage] = useState("ur");
   const [voice, setVoice] = useState("ur-PK-UzmaNeural");
   const [voiceCatalogue, setVoiceCatalogue] = useState<Record<string, VoiceOption[]>>(VOICES);
-  const [referenceAvailable, setReferenceAvailable] = useState(false);
-  const [referenceLanguages, setReferenceLanguages] = useState<string[]>([]);
-  const [speechSettings, setSpeechSettings] = useState<SpeechSettings>({ narration_style: "normal", speech_mode: "standard", speaker_consent: false, referenceFile: null });
+  const [speechSettings, setSpeechSettings] = useState<SpeechSettings>({ narration_style: "normal" });
   const [step, setStep] = useState<Step>("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [videoTitle, setVideoTitle] = useState("");
@@ -98,8 +96,6 @@ export function QuickDub() {
     fetchVoices().then((data) => {
       if (!active) return;
       setVoiceCatalogue(data.voices);
-      setReferenceAvailable(data.reference_voice?.available ?? false);
-      setReferenceLanguages(data.reference_voice?.languages ?? []);
     }).catch(() => { /* Retain known voices if discovery is unavailable. */ });
     return () => { active = false; };
   }, []);
@@ -128,11 +124,6 @@ export function QuickDub() {
   }, []);
 
   const handleGenerate = async () => {
-    if (speechSettings.speech_mode === "reference" && (!referenceAvailable || !referenceLanguages.includes(targetLanguage) || !speechSettings.referenceFile || !speechSettings.speaker_consent)) {
-      setErrorMessage("Choose a supported language, upload a reference WAV and confirm speaker permission.");
-      setStep("error");
-      return;
-    }
     if (!extractVideoId(url.trim())) {
       setErrorMessage("Please enter a valid YouTube video URL.");
       setStep("error");
@@ -155,7 +146,6 @@ export function QuickDub() {
       phase = 'generation';
 
       // The backend translates, synthesises audio, and saves the output to MongoDB.
-      const reference = speechSettings.speech_mode === "reference" && speechSettings.referenceFile ? await uploadSpeakerReference(speechSettings.referenceFile) : undefined;
       const result = await generateAudio({
         video_id: transcript.video_id,
         title: transcript.title,
@@ -163,9 +153,6 @@ export function QuickDub() {
         target_language: targetLanguage,
         voice,
         narration_style: speechSettings.narration_style,
-        speech_mode: speechSettings.speech_mode,
-        speaker_consent: speechSettings.speaker_consent,
-        reference_id: reference?.reference_id,
         transcript: transcript.segments.map((s) => s.text).join(" "),
       });
 
@@ -367,7 +354,7 @@ export function QuickDub() {
                         </SelectContent>
                       </Select>
                     </Field>
-                    <SpeechControls language={targetLanguage} voice={voice} disabled={isProcessing} referenceAvailable={referenceAvailable} referenceLanguages={referenceLanguages} settings={speechSettings} onChange={setSpeechSettings} />
+                    <SpeechControls language={targetLanguage} voice={voice} disabled={isProcessing} settings={speechSettings} onChange={setSpeechSettings} />
                     </div>
                 </FieldGroup>
               </section>

@@ -251,7 +251,7 @@ export function Outputs() {
                     <div className="listening-meta">
                       <span>{langName(selected.sourceLanguage)} <ArrowRight aria-hidden="true" className="size-3" /> {langName(selected.targetLanguage)}</span>
                       <span>{voiceName(selected.voice)}</span>
-                      <span>{selected.speechMode === "reference" ? "Reference voice" : narrationName(selected.narrationStyle)}</span>
+                      <span>{narrationName(selected.narrationStyle)}</span>
                       <span>{fmtDate(selected.createdAt)}</span>
                     </div>
                   </div>

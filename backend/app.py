@@ -16,7 +16,7 @@ from pathlib import Path
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
@@ -28,7 +28,6 @@ from services.transcript import validate_youtube_url, fetch_transcript, fetch_vi
 from services.translate import translate_text, summarize_text
 from services.tts import generate_speech, voice_catalogue, validate_voice
 from services.languages import LANGUAGE_NAMES, PREVIEW_TEXT
-from services import reference_voice
 from services import outputs as output_service
 
 load_dotenv()
@@ -82,9 +81,6 @@ class GenerateRequest(BaseModel):
     transcript: str = Field(min_length=1, max_length=30000)
     title: str = Field(default="", max_length=500)
     narration_style: Literal["normal", "motivational", "calm"] = "normal"
-    speech_mode: Literal["standard", "reference"] = "standard"
-    reference_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
-    speaker_consent: bool = False
 
 
 class VoicePreviewRequest(BaseModel):
@@ -130,7 +126,6 @@ async def get_voices():
         "voices": await voice_catalogue(),
         "languages": LANGUAGE_NAMES,
         "preview_text": PREVIEW_TEXT,
-        "reference_voice": {"available": reference_voice.is_available(), "languages": sorted(reference_voice.supported_languages())},
     }
 
 
@@ -142,22 +137,6 @@ async def api_voice_preview(req: VoicePreviewRequest):
     if "error" in result:
         raise HTTPException(502, detail={"code": result.get("error_code", "speech_generation_failed"), "message": result["error"]})
     return {"audio_url": f'/api/audio/{result["audio_filename"]}', "voice": result.get("voice", req.voice)}
-
-
-@app.post("/api/speaker-reference")
-async def api_speaker_reference(request: Request):
-    if not reference_voice.is_available():
-        raise HTTPException(503, detail={"code": "reference_unavailable", "message": "Reference voice mode is not enabled on this server."})
-    data = bytearray()
-    async for chunk in request.stream():
-        if len(data) + len(chunk) > 5 * 1024 * 1024:
-            raise HTTPException(413, "Reference file must be smaller than 5 MB.")
-        data.extend(chunk)
-    try:
-        reference_id = await asyncio.to_thread(reference_voice.save_reference, bytes(data), OUTPUT_DIR)
-    except ValueError as exc:
-        raise HTTPException(400, str(exc)) from exc
-    return {"reference_id": reference_id}
 
 
 @app.post("/api/fetch-transcript")
@@ -191,16 +170,7 @@ async def api_generate(req: GenerateRequest):
     """
     if req.target_language not in LANGUAGE_NAMES:
         raise HTTPException(400, "Choose a supported target language.")
-    if req.speech_mode == "reference":
-        if not reference_voice.is_available():
-            raise HTTPException(503, detail={"code": "reference_unavailable", "message": "Reference voice mode is not enabled on this server."})
-        if req.target_language not in reference_voice.supported_languages() or not req.speaker_consent:
-            raise HTTPException(400, "Choose a supported reference language and confirm speaker permission.")
-        try:
-            reference_voice.reference_path(req.reference_id or "", OUTPUT_DIR)
-        except ValueError as exc:
-            raise HTTPException(400, str(exc)) from exc
-    elif not await validate_voice(req.target_language, req.voice):
+    if not await validate_voice(req.target_language, req.voice):
         raise HTTPException(400, "Choose a voice available in the selected language.")
 
     # Step 1: Translate
@@ -222,26 +192,22 @@ async def api_generate(req: GenerateRequest):
     summary_text = summary_result["summary_text"]
 
     # Generate the full and summary speech in the selected voice.
-    if req.speech_mode == "reference":
-        tts_result = await reference_voice.generate_reference_speech(translated_text, req.target_language, req.reference_id, OUTPUT_DIR)
-        summary_tts_result = await reference_voice.generate_reference_speech(summary_text, req.target_language, req.reference_id, OUTPUT_DIR) if "error" not in tts_result else tts_result
-    else:
-        tts_result = await generate_speech(
-            text=translated_text,
-            voice=req.voice,
-            video_id=req.video_id,
-            target_language=req.target_language,
-            output_dir=OUTPUT_DIR,
-            narration_style=req.narration_style,
-        )
-        summary_tts_result = await generate_speech(
-            text=summary_text,
-            voice=req.voice,
-            video_id=req.video_id,
-            target_language=req.target_language,
-            output_dir=OUTPUT_DIR,
-            narration_style=req.narration_style,
-        ) if "error" not in tts_result else tts_result
+    tts_result = await generate_speech(
+        text=translated_text,
+        voice=req.voice,
+        video_id=req.video_id,
+        target_language=req.target_language,
+        output_dir=OUTPUT_DIR,
+        narration_style=req.narration_style,
+    )
+    summary_tts_result = await generate_speech(
+        text=summary_text,
+        voice=req.voice,
+        video_id=req.video_id,
+        target_language=req.target_language,
+        output_dir=OUTPUT_DIR,
+        narration_style=req.narration_style,
+    ) if "error" not in tts_result else tts_result
 
     if "error" in tts_result:
         message = tts_result.get("error", "The speech service could not generate audio. Please try again.")
@@ -271,13 +237,8 @@ async def api_generate(req: GenerateRequest):
         "title": title,
         "source_language": req.source_language,
         "target_language": req.target_language,
-        "voice": (
-            tts_result.get("voice", req.voice)
-            if req.speech_mode == "standard"
-            else "Reference voice (XTTS)"
-        ),
+        "voice": tts_result.get("voice", req.voice),
         "narration_style": req.narration_style,
-        "speech_mode": req.speech_mode,
         "original_transcript": req.transcript,
         "translated_text": translated_text,
         "summary_text": summary_text,

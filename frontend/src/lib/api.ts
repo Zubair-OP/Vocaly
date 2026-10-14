@@ -35,7 +35,6 @@ export interface VoiceOption {
 export interface VoicesResponse {
   voices: Record<string, VoiceOption[]>;
   preview_text?: Record<string, string>;
-  reference_voice?: { available: boolean; languages: string[] };
 }
 
 export type NarrationStyle = 'normal' | 'motivational' | 'calm';
@@ -44,12 +43,6 @@ export async function previewVoice(target_language: string, voice: string, narra
   return handleResponse(await fetch(`${API_BASE}/voice-preview`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ target_language, voice, narration_style }),
-  }));
-}
-
-export async function uploadSpeakerReference(file: File): Promise<{ reference_id: string }> {
-  return handleResponse(await fetch(`${API_BASE}/speaker-reference`, {
-    method: 'POST', headers: { 'Content-Type': 'audio/wav' }, body: file,
   }));
 }
 
@@ -62,7 +55,6 @@ export interface OutputItem {
   targetLanguage: string;
   voice?: string;
   narrationStyle?: NarrationStyle;
-  speechMode?: 'standard' | 'reference';
   originalTranscript: string;
   translatedText: string;
   summaryText?: string;
@@ -114,7 +106,6 @@ const GENERATION_ERRORS: Record<string, string> = {
 export function generationErrorMessage(error: unknown, phase: 'transcript' | 'generation'): string {
   if (error instanceof ApiError && [429, 413, 408, 507].includes(error.status)) return error.message;
   if (phase === 'transcript' && error instanceof ApiError && error.status < 500) return error.message;
-  if (error instanceof ApiError && ['reference_unavailable', 'reference_generation_failed'].includes(error.code || '')) return error.message;
   if (error instanceof ApiError && error.code && GENERATION_ERRORS[error.code]) {
     return GENERATION_ERRORS[error.code];
   }
@@ -143,9 +134,6 @@ export async function generateAudio(params: {
   transcript: string;
   title?: string;
   narration_style?: NarrationStyle;
-  speech_mode?: 'standard' | 'reference';
-  reference_id?: string;
-  speaker_consent?: boolean;
 }): Promise<GenerateResponse> {
   const response = await fetch(`${API_BASE}/generate`, {
     method: 'POST',
