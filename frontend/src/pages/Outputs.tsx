@@ -6,12 +6,14 @@ import {
   Search,
   AudioLines,
   FileText,
+  Sparkles,
   ArrowRight,
   Download,
   Plus,
 } from "lucide-react";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import { OutputTranscript } from "@/components/OutputTranscript";
+import { OutputSummary } from "@/components/OutputSummary";
 import { VideoThumbnail } from "@/components/shared/VideoThumbnail";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -274,6 +276,7 @@ export function Outputs() {
               <TabsList aria-label="Output workspace">
                 <TabsTrigger value="library"><AudioLines className="size-4" /> Audio library</TabsTrigger>
                 <TabsTrigger value="transcript" disabled={!selected}><FileText className="size-4" /> Transcript</TabsTrigger>
+                <TabsTrigger value="summary" disabled={!selected?.summaryText}><Sparkles className="size-4" /> Summary</TabsTrigger>
               </TabsList>
               <span className="hidden text-xs text-muted-foreground sm:block">{view === "library" ? "Select a dub to listen, read, or download." : "Read in your original or translated language."}</span>
             </div>
@@ -314,6 +317,9 @@ export function Outputs() {
             </TabsContent>
             <TabsContent value="transcript">
               {selected && <OutputTranscript key={selected.id} output={selected} />}
+            </TabsContent>
+            <TabsContent value="summary">
+              {selected && <OutputSummary key={selected.id} output={selected} />}
             </TabsContent>
           </Tabs>
         </div>

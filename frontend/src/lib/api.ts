@@ -20,7 +20,9 @@ export interface FetchTranscriptResponse {
 export interface GenerateResponse {
   status: string;
   translated_text: string;
+  summary_text: string;
   audio_url: string;
+  summary_audio_url: string;
   job_id: string;
   output: OutputItem;
 }
@@ -63,7 +65,9 @@ export interface OutputItem {
   speechMode?: 'standard' | 'reference';
   originalTranscript: string;
   translatedText: string;
+  summaryText?: string;
   audioUrl: string;
+  summaryAudioUrl?: string;
   createdAt: string;
   status: 'completed' | 'error';
 }
@@ -98,6 +102,13 @@ const GENERATION_ERRORS: Record<string, string> = {
   translation_failed: 'The transcript was fetched, but translation failed. Please try again.',
   audio_generation_failed: 'Translation finished, but the speech service could not generate audio. Try again or choose another voice.',
   output_storage_unavailable: 'Your audio was generated, but it could not be saved. Check the database connection and try again.',
+  speech_provider_unavailable: 'Microsoft Edge TTS is unavailable and no fallback provider is configured. Configure a Gemini API key and try again.',
+  speech_quota_exceeded: 'Gemini TTS has reached its API quota. Check your Gemini API quota and try again.',
+  speech_generation_failed: 'Both speech providers failed to create the audio. Check your Gemini API connection and quota, then try again.',
+  summary_audio_generation_failed: 'The summary was created, but its audio could not be generated. Please try again.',
+  summary_rate_limited: 'The Groq summary quota is exhausted. Check your Groq API quota and try again.',
+  summary_failed: 'The video summary could not be generated. Please try again.',
+  summary_provider_auth_failed: 'Groq rejected the API key. Check that GROQ_API_KEY is active and restart the backend.',
 };
 
 export function generationErrorMessage(error: unknown, phase: 'transcript' | 'generation'): string {
@@ -180,6 +191,8 @@ export async function saveOutput(output: OutputItem): Promise<OutputItem> {
       voice: output.voice ?? '',
       original_transcript: output.originalTranscript,
       translated_text: output.translatedText,
+      summary_text: output.summaryText ?? '',
+      summary_audio_url: output.summaryAudioUrl ?? '',
       audio_url: output.audioUrl,
       status: output.status,
       created_at: output.createdAt,

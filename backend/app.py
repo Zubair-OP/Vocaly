@@ -25,7 +25,7 @@ from dotenv import load_dotenv
 import db
 from limits import DemoLimits
 from services.transcript import validate_youtube_url, fetch_transcript, fetch_video_title
-from services.translate import translate_text
+from services.translate import translate_text, summarize_text
 from services.tts import generate_speech, voice_catalogue, validate_voice
 from services.languages import LANGUAGE_NAMES, PREVIEW_TEXT
 from services import reference_voice
@@ -104,7 +104,9 @@ class OutputPayload(BaseModel):
     voice: str = Field(default="", max_length=100)
     original_transcript: str = Field(default="", max_length=30000)
     translated_text: str = Field(default="", max_length=120000)
+    summary_text: str = Field(default="", max_length=10000)
     audio_url: str = Field(max_length=255, pattern=r"^/api/audio/[a-zA-Z0-9_-]+\.(?:mp3|wav)$")
+    summary_audio_url: str = Field(default="", max_length=255, pattern=r"^(?:/api/audio/[a-zA-Z0-9_-]+\.(?:mp3|wav))?$")
     status: Literal["completed", "error"] = "completed"
     created_at: str | None = Field(default=None, max_length=40)
 
@@ -138,8 +140,8 @@ async def api_voice_preview(req: VoicePreviewRequest):
         raise HTTPException(400, "Choose a voice available in the selected language.")
     result = await generate_speech(PREVIEW_TEXT[req.target_language], req.voice, "preview", req.target_language, OUTPUT_DIR, req.narration_style)
     if "error" in result:
-        raise HTTPException(502, "Voice preview could not be generated. Try again.")
-    return {"audio_url": f'/api/audio/{result["audio_filename"]}'}
+        raise HTTPException(502, detail={"code": result.get("error_code", "speech_generation_failed"), "message": result["error"]})
+    return {"audio_url": f'/api/audio/{result["audio_filename"]}', "voice": result.get("voice", req.voice)}
 
 
 @app.post("/api/speaker-reference")
@@ -213,9 +215,16 @@ async def api_generate(req: GenerateRequest):
 
     translated_text = translation_result["translated_text"]
 
-    # Step 2: Generate speech
+    # Summarize in the target language so the summary and generated voice match.
+    summary_result = await summarize_text(translated_text, req.target_language)
+    if "error" in summary_result:
+        raise HTTPException(status_code=503, detail={"code": summary_result.get("error_code", "summary_failed"), "message": summary_result["error"]})
+    summary_text = summary_result["summary_text"]
+
+    # Generate the full and summary speech in the selected voice.
     if req.speech_mode == "reference":
         tts_result = await reference_voice.generate_reference_speech(translated_text, req.target_language, req.reference_id, OUTPUT_DIR)
+        summary_tts_result = await reference_voice.generate_reference_speech(summary_text, req.target_language, req.reference_id, OUTPUT_DIR) if "error" not in tts_result else tts_result
     else:
         tts_result = await generate_speech(
             text=translated_text,
@@ -225,17 +234,30 @@ async def api_generate(req: GenerateRequest):
             output_dir=OUTPUT_DIR,
             narration_style=req.narration_style,
         )
+        summary_tts_result = await generate_speech(
+            text=summary_text,
+            voice=req.voice,
+            video_id=req.video_id,
+            target_language=req.target_language,
+            output_dir=OUTPUT_DIR,
+            narration_style=req.narration_style,
+        ) if "error" not in tts_result else tts_result
 
     if "error" in tts_result:
-        message = (
-            "Reference voice generation failed. Check the local XTTS setup or use a standard voice."
-            if req.speech_mode == "reference"
-            else "The speech service could not generate audio. Try again or choose another voice."
-        )
+        message = tts_result.get("error", "The speech service could not generate audio. Please try again.")
         raise HTTPException(status_code=502, detail={"code": tts_result.get("error_code", "audio_generation_failed"), "message": message})
+
+    if "error" in summary_tts_result:
+        try:
+            Path(OUTPUT_DIR, tts_result["audio_filename"]).unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise HTTPException(status_code=502, detail={"code": "summary_audio_generation_failed", "message": "The summary was created, but its audio could not be generated. Please try again."})
 
     audio_filename = tts_result["audio_filename"]
     audio_url = f"/api/audio/{audio_filename}"
+    summary_audio_filename = summary_tts_result["audio_filename"]
+    summary_audio_url = f"/api/audio/{summary_audio_filename}"
 
     # Step 3: Resolve title (client usually sends it, otherwise fetch it)
     title = req.title.strip()
@@ -249,11 +271,18 @@ async def api_generate(req: GenerateRequest):
         "title": title,
         "source_language": req.source_language,
         "target_language": req.target_language,
-        "voice": req.voice if req.speech_mode == "standard" else "Reference voice (XTTS)",
+        "voice": (
+            tts_result.get("voice", req.voice)
+            if req.speech_mode == "standard"
+            else "Reference voice (XTTS)"
+        ),
         "narration_style": req.narration_style,
         "speech_mode": req.speech_mode,
         "original_transcript": req.transcript,
         "translated_text": translated_text,
+        "summary_text": summary_text,
+        "summary_audio_url": summary_audio_url,
+        "summary_audio_filename": summary_audio_filename,
         "audio_url": audio_url,
         "audio_filename": audio_filename,
         "status": "completed",
@@ -263,12 +292,19 @@ async def api_generate(req: GenerateRequest):
     try:
         output = await output_service.save_output(document)
     except db.DatabaseUnavailable as exc:
+        for generated_url in (audio_url, summary_audio_url):
+            try:
+                await asyncio.to_thread(output_service.remove_audio, generated_url, OUTPUT_DIR)
+            except output_service.AudioCleanupFailed:
+                pass
         raise _db_error(exc)
 
     return {
         "status": "completed",
         "translated_text": translated_text,
+        "summary_text": summary_text,
         "audio_url": audio_url,
+        "summary_audio_url": summary_audio_url,
         "job_id": tts_result["job_id"],
         "output": output,
     }
@@ -318,6 +354,8 @@ async def api_create_output(payload: OutputPayload):
         "voice": payload.voice,
         "original_transcript": payload.original_transcript,
         "translated_text": payload.translated_text,
+        "summary_text": payload.summary_text,
+        "summary_audio_url": payload.summary_audio_url,
         "audio_url": payload.audio_url,
         "status": payload.status,
         "created_at": created_at or datetime.now(timezone.utc),

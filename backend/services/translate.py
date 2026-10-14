@@ -145,6 +145,91 @@ async def translate_text(
         return {"error": "Translation could not be completed. Please try again.", "error_code": "translation_failed"}
 
 
+async def summarize_text(text: str, language: str) -> dict:
+    """Create a one-minute summary with Groq, matching the app's configured LLM provider."""
+    api_key = os.getenv("GROQ_API_KEY", "").strip()
+    if not api_key or api_key in {"your_groq_api_key_here", "optional_fallback_key"}:
+        return {
+            "error": "Summary generation is not configured. Add a valid GROQ_API_KEY to the backend environment.",
+            "error_code": "summary_not_configured",
+        }
+
+    language_name = LANGUAGE_NAMES.get(language, language)
+    try:
+        summary = await _summarize_with_groq(text, language_name, api_key)
+        if not summary:
+            raise ValueError("Groq returned an empty summary")
+        return {"summary_text": summary}
+    except Exception as exc:
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        print(f"[Summary] Groq failed ({type(exc).__name__}, HTTP {status or 'n/a'})")
+        if status == 429:
+            return {
+                "error": "Groq's summary quota or rate limit was reached. Check the Groq API quota and try again.",
+                "error_code": "summary_rate_limited",
+            }
+        if status in {401, 403}:
+            return {
+                "error": "Groq rejected GROQ_API_KEY. Check that the key is active and has API access.",
+                "error_code": "summary_provider_auth_failed",
+            }
+        return {"error": "Groq could not generate the video summary. Please try again.", "error_code": "summary_failed"}
+
+
+async def _select_groq_model(client, api_key: str) -> str:
+    """Prefer the configured Groq model, then choose an available known model."""
+    chosen_model = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+    try:
+        response = await client.get(
+            "https://api.groq.com/openai/v1/models",
+            headers={"Authorization": f"Bearer {api_key}"},
+        )
+        if response.status_code == 200:
+            available_ids = [item.get("id") for item in response.json().get("data", [])]
+            for candidate in [
+                chosen_model,
+                "openai/gpt-oss-120b",
+                "openai/gpt-oss-20b",
+                "llama-3.3-70b-versatile",
+                "llama-3.1-8b-instant",
+            ]:
+                if candidate in available_ids:
+                    return candidate
+    except Exception:
+        pass
+    return chosen_model
+
+
+async def _summarize_with_groq(text: str, language_name: str, api_key: str) -> str:
+    """Generate a spoken one-minute summary through Groq's chat API."""
+    import httpx
+
+    system_prompt = f"""You summarize video transcripts in {language_name} for spoken audio of about one minute.
+Aim for 110 to 130 words when the source supports it, and be proportionally shorter for brief sources.
+Cover the central topic, important points or sections, and key takeaway. Preserve names and technical terms.
+Do not invent facts. Use natural spoken wording and return only the summary text."""
+
+    async with httpx.AsyncClient(timeout=45.0) as client:
+        model = await _select_groq_model(client, api_key)
+        response = await client.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": text},
+                ],
+                "temperature": 0.3,
+            },
+        )
+        response.raise_for_status()
+        result = response.json()["choices"][0]["message"]["content"].strip()
+        if not result:
+            raise ValueError("Groq returned an empty summary")
+        return result
+
+
 async def _translate_with_groq(text: str, source_lang: str, target_lang: str, api_key: str) -> str:
     """Fallback translation using Groq Cloud API."""
     import httpx
@@ -163,27 +248,7 @@ async def _translate_with_groq(text: str, source_lang: str, target_lang: str, ap
     translated_chunks = []
 
     async with httpx.AsyncClient(timeout=30.0) as client:
-        # Determine available Groq model
-        chosen_model = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
-        try:
-            m_res = await client.get(
-                "https://api.groq.com/openai/v1/models",
-                headers={"Authorization": f"Bearer {api_key}"},
-            )
-            if m_res.status_code == 200:
-                available_ids = [m.get("id") for m in m_res.json().get("data", [])]
-                for candidate in [
-                    chosen_model,
-                    "openai/gpt-oss-120b",
-                    "openai/gpt-oss-20b",
-                    "llama-3.3-70b-versatile",
-                    "llama-3.1-8b-instant",
-                ]:
-                    if candidate in available_ids:
-                        chosen_model = candidate
-                        break
-        except Exception:
-            pass
+        chosen_model = await _select_groq_model(client, api_key)
 
         print(f"[Translation] Using Groq model: {chosen_model}")
 

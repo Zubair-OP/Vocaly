@@ -87,7 +87,9 @@ def serialize_output(doc: dict[str, Any]) -> dict[str, Any]:
         "speechMode": doc.get("speech_mode", "standard"),
         "originalTranscript": doc.get("original_transcript", ""),
         "translatedText": doc.get("translated_text", ""),
+        "summaryText": doc.get("summary_text", ""),
         "audioUrl": doc.get("audio_url", ""),
+        "summaryAudioUrl": doc.get("summary_audio_url", ""),
         "createdAt": created_iso,
         "status": doc.get("status", "completed"),
     }
@@ -149,7 +151,7 @@ async def delete_output(output_id: str) -> bool:
 async def audio_is_shared(output_id: str, audio_url: str) -> bool:
     try:
         doc = await outputs_collection().find_one(
-            {"id": {"$ne": output_id}, "audio_url": audio_url}, {"_id": 1}
+            {"id": {"$ne": output_id}, "$or": [{"audio_url": audio_url}, {"summary_audio_url": audio_url}]}, {"_id": 1}
         )
     except PyMongoError as exc:
         raise DatabaseUnavailable("Could not check audio references.") from exc

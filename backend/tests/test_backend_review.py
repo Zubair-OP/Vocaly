@@ -89,7 +89,7 @@ class BackendReviewTests(unittest.IsolatedAsyncioTestCase):
             async def fail(path):
                 Path(path).write_bytes(b"partial")
                 raise RuntimeError("private upstream information")
-            with patch.object(tts.edge_tts, "Communicate") as communicate:
+            with patch.object(tts.edge_tts, "Communicate") as communicate, patch.object(tts, "_generate_gemini_speech", new=AsyncMock(return_value={"error": "Speech unavailable", "error_code": "speech_generation_failed"})):
                 communicate.return_value.save = AsyncMock(side_effect=fail)
                 result = await tts.generate_speech("Hello", "en-US-GuyNeural", "abcdefghijk", "en", directory)
             self.assertNotIn("private upstream information", str(result))

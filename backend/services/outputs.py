@@ -36,10 +36,11 @@ async def delete_output(output_id: str, output_dir: str) -> bool:
         output = await db.get_output(output_id)
         if output is None:
             return False
-        audio_url = output.get("audioUrl", "")
-        # Manually saved legacy records can share an audio URL.
-        if audio_url and not await db.audio_is_shared(output_id, audio_url):
-            await asyncio.to_thread(remove_audio, audio_url, output_dir)
+        audio_urls = {output.get("audioUrl", ""), output.get("summaryAudioUrl", "")}
+        # Manually saved records can share either audio URL.
+        for audio_url in filter(None, audio_urls):
+            if not await db.audio_is_shared(output_id, audio_url):
+                await asyncio.to_thread(remove_audio, audio_url, output_dir)
         # File first: on file failure the full record remains available for retry.
         # If the DB write fails, retry tolerates the now-missing audio file.
         return await db.delete_output(output_id)

@@ -93,7 +93,7 @@ class SpeechTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(response.status_code, 400)
 
     async def test_standard_generate_route_passes_style_and_saves_metadata(self):
-        with patch.object(tts, "_catalogue", tts.VOICE_MAP), patch.object(tts, "_catalogue_time", float("inf")), patch.object(app, "translate_text", new=AsyncMock(return_value={"translated_text": "Bonjour"})), patch.object(app, "generate_speech", new=AsyncMock(return_value={"audio_filename": "result.mp3", "job_id": "test"})) as generate, patch.object(app.db, "save_output", new=AsyncMock(side_effect=lambda document: document)):
+        with patch.object(tts, "_catalogue", tts.VOICE_MAP), patch.object(tts, "_catalogue_time", float("inf")), patch.object(app, "translate_text", new=AsyncMock(return_value={"translated_text": "Bonjour"})), patch.object(app, "summarize_text", new=AsyncMock(return_value={"summary_text": "Résumé important."})), patch.object(app, "generate_speech", new=AsyncMock(return_value={"audio_filename": "result.mp3", "job_id": "test"})) as generate, patch.object(app.db, "save_output", new=AsyncMock(side_effect=lambda document: document)):
             response = await self.client.post("/api/generate", json={"video_id": "abcdefghijk", "source_language": "en", "target_language": "fr", "voice": "fr-FR-DeniseNeural", "transcript": "Hello", "title": "Test", "narration_style": "motivational"})
             self.assertEqual(response.status_code, 200)
             self.assertEqual(generate.call_args.kwargs["narration_style"], "motivational")
@@ -123,11 +123,11 @@ class SpeechTests(unittest.IsolatedAsyncioTestCase):
     async def test_reference_generate_route_and_wav_serving(self):
         reference_id = reference_voice.save_reference(wav_sample(), self.directory.name)
         Path(self.directory.name, "result.wav").write_bytes(wav_sample())
-        with patch.object(reference_voice, "is_available", return_value=True), patch.object(app, "translate_text", new=AsyncMock(return_value={"translated_text": "Bonjour"})), patch.object(reference_voice, "generate_reference_speech", new=AsyncMock(return_value={"audio_filename": "result.wav", "job_id": "test"})) as generate, patch.object(app.db, "save_output", new=AsyncMock(side_effect=lambda document: document)):
+        with patch.object(reference_voice, "is_available", return_value=True), patch.object(app, "translate_text", new=AsyncMock(return_value={"translated_text": "Bonjour"})), patch.object(app, "summarize_text", new=AsyncMock(return_value={"summary_text": "Résumé important."})), patch.object(reference_voice, "generate_reference_speech", new=AsyncMock(return_value={"audio_filename": "result.wav", "job_id": "test"})) as generate, patch.object(app.db, "save_output", new=AsyncMock(side_effect=lambda document: document)):
             payload = {"video_id": "abcdefghijk", "source_language": "en", "target_language": "fr", "voice": "", "transcript": "Hello", "title": "Test", "speech_mode": "reference", "reference_id": reference_id, "speaker_consent": True}
             response = await self.client.post("/api/generate", json=payload)
             self.assertEqual(response.status_code, 200)
-            generate.assert_awaited_once()
+            self.assertEqual(generate.await_count, 2)
             self.assertEqual(response.json()["audio_url"], "/api/audio/result.wav")
             audio = await self.client.get(response.json()["audio_url"])
             self.assertEqual(audio.headers["content-type"], "audio/wav")

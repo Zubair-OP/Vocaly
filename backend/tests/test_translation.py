@@ -1,5 +1,6 @@
 import os
 import unittest
+import httpx
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -43,6 +44,26 @@ class TranslationTests(unittest.IsolatedAsyncioTestCase):
     async def test_groq_only_configuration(self):
         with patch.object(translate, "_get_gemini_model", return_value=None), patch.dict(os.environ, {"GROQ_API_KEY": "test"}, clear=True), patch.object(translate, "_translate_with_groq", new=AsyncMock(return_value="Translation")):
             self.assertEqual(await translate.translate_text("Hello", "en", "ur"), {"translated_text": "Translation"})
+
+    async def test_summary_uses_groq(self):
+        with patch.dict(os.environ, {"GROQ_API_KEY": "test"}), patch.object(translate, "_summarize_with_groq", new=AsyncMock(return_value="Groq summary")) as summarize:
+            result = await translate.summarize_text("A long video transcript", "ur")
+            self.assertEqual(result, {"summary_text": "Groq summary"})
+            summarize.assert_awaited_once_with("A long video transcript", "Urdu", "test")
+
+    async def test_summary_quota_failure_is_actionable(self):
+        response = httpx.Response(429, request=httpx.Request("POST", "https://api.groq.com/openai/v1/chat/completions"))
+        failure = httpx.HTTPStatusError("rate limited", request=response.request, response=response)
+        with patch.dict(os.environ, {"GROQ_API_KEY": "test"}, clear=True), patch.object(translate, "_summarize_with_groq", new=AsyncMock(side_effect=failure)):
+            result = await translate.summarize_text("A long video transcript", "en")
+            self.assertEqual(result["error_code"], "summary_rate_limited")
+            self.assertIn("Groq", result["error"])
+
+    async def test_missing_groq_key_is_actionable(self):
+        with patch.dict(os.environ, {}, clear=True):
+            result = await translate.summarize_text("A long video transcript", "en")
+            self.assertEqual(result["error_code"], "summary_not_configured")
+            self.assertIn("GROQ_API_KEY", result["error"])
 
 
 if __name__ == "__main__":

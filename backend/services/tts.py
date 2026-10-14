@@ -3,10 +3,12 @@ Text-to-Speech service using edge-tts.
 Converts translated text to MP3 audio files.
 """
 
+import base64
 import os
 import uuid
 import asyncio
 import time
+import httpx
 import edge_tts
 from dotenv import load_dotenv
 from services.languages import LANGUAGE_NAMES, NARRATION_PRESETS
@@ -96,7 +98,7 @@ async def generate_speech(
     narration_style: str = "normal",
 ) -> dict:
     """
-    Generate MP3 audio from text using edge-tts.
+    Generate speech using Edge TTS, falling back to Gemini TTS when needed.
     Returns dict with audio_filename or error.
     """
     if output_dir is None:
@@ -115,17 +117,130 @@ async def generate_speech(
 
         # Verify file was created and has content
         if not os.path.exists(filepath) or os.path.getsize(filepath) == 0:
-            return {"error": "Audio generation failed. Retry with another voice."}
+            raise RuntimeError("Edge TTS returned an empty audio file")
 
         return {
             "audio_filename": filename,
             "job_id": job_id,
+            "provider": "edge",
+            "voice": voice,
         }
 
-    except Exception as e:
+    except Exception as exc:
         if os.path.exists(filepath):
             os.remove(filepath)
-        error_str = str(e).lower()
-        if "voice" in error_str:
-            return {"error": f"Audio generation failed. The voice '{voice}' may not be available. Retry with another voice."}
-        return {"error": "Audio generation failed. Retry with another voice."}
+        status = getattr(exc, "status", None)
+        print(f"[TTS] Edge provider failed ({type(exc).__name__}, HTTP {status or 'n/a'}); trying Gemini TTS fallback")
+        return await _generate_gemini_speech(
+            text=text,
+            voice=voice,
+            job_id=job_id,
+            target_language=target_language,
+            output_dir=output_dir,
+            narration_style=narration_style,
+        )
+
+
+def _gemini_voice_for_edge_voice(voice: str, language: str) -> str:
+    """Choose a Gemini voice with a similar gender to the selected Edge voice."""
+    male_markers = ("guy", "ryan", "asad", "madhur", "hamed")
+    is_male = any(marker in voice.lower() for marker in male_markers)
+
+    # Dynamically discovered voices include their gender in the display name.
+    if not is_male:
+        for option in get_voices_for_language(language):
+            if option["id"] == voice and "male" in option["name"].lower():
+                is_male = True
+                break
+    if not is_male:
+        catalogue = _catalogue or {}
+        for option in catalogue.get(language, []):
+            if option["id"] == voice and "male" in option["name"].lower():
+                is_male = True
+                break
+
+    return "Charon" if is_male else "Kore"
+
+
+async def _generate_gemini_speech(
+    text: str,
+    voice: str,
+    job_id: str,
+    target_language: str,
+    output_dir: str,
+    narration_style: str,
+) -> dict:
+    """Use the configured Gemini API when Microsoft's Edge TTS endpoint fails."""
+    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    if not api_key or api_key == "your_gemini_api_key_here":
+        return {
+            "error": "Microsoft Edge TTS is unavailable and Gemini TTS is not configured.",
+            "error_code": "speech_provider_unavailable",
+        }
+
+    gemini_voice = _gemini_voice_for_edge_voice(voice, target_language)
+    delivery = {
+        "normal": "Speak clearly at a natural pace.",
+        "motivational": "Speak with confident, uplifting energy at a slightly brisk pace.",
+        "calm": "Speak gently and calmly at a relaxed pace.",
+    }.get(narration_style, "Speak clearly at a natural pace.")
+    payload = {
+        "model": os.getenv("GEMINI_TTS_MODEL", "gemini-3.8-flash-tts"),
+        "input": [{
+            "type": "user_input",
+            "content": [{
+                "type": "text",
+                "text": text,
+                "annotations": [{"type": "speech_metadata", "style": delivery}],
+            }],
+        }],
+        "response_format": {"type": "audio"},
+        "generation_config": {"speech_config": [{"voice": gemini_voice}]},
+    }
+    filename = f"vocally_{target_language}_{job_id}.wav"
+    filepath = os.path.join(output_dir, filename)
+
+    try:
+        async with httpx.AsyncClient(timeout=120) as client:
+            response = await client.post(
+                "https://generativelanguage.googleapis.com/v1beta/interactions",
+                headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
+                json=payload,
+            )
+        if response.status_code == 429:
+            return {"error": "Gemini TTS has reached its API quota. Check the Gemini API quota and try again.", "error_code": "speech_quota_exceeded"}
+        response.raise_for_status()
+        result = response.json()
+        audio_data = result.get("output_audio", {}).get("data")
+        if not audio_data:
+            for step in result.get("steps", []):
+                for part in step.get("content", []):
+                    if part.get("type") == "audio" or str(part.get("mime_type", "")).startswith("audio/"):
+                        audio_data = part.get("data")
+                        if audio_data:
+                            break
+                if audio_data:
+                    break
+        if not audio_data:
+            raise ValueError("Gemini returned no audio data")
+
+        audio_bytes = base64.b64decode(audio_data, validate=True)
+        if len(audio_bytes) <= 44 or audio_bytes[:4] != b"RIFF":
+            raise ValueError("Gemini returned an invalid WAV file")
+        with open(filepath, "wb") as audio_file:
+            audio_file.write(audio_bytes)
+        return {
+            "audio_filename": filename,
+            "job_id": job_id,
+            "provider": "gemini",
+            "voice": f"Gemini TTS ({gemini_voice})",
+        }
+    except Exception as exc:
+        if os.path.exists(filepath):
+            os.remove(filepath)
+        status = getattr(exc, "status_code", None) or getattr(getattr(exc, "response", None), "status_code", None)
+        print(f"[TTS] Gemini fallback failed ({type(exc).__name__}, HTTP {status or 'n/a'})")
+        return {
+            "error": "Speech could not be generated. Check the Gemini API connection and quota, then try again.",
+            "error_code": "speech_generation_failed",
+        }
