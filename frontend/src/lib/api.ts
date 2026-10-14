@@ -115,7 +115,7 @@ export function generationErrorMessage(error: unknown, phase: 'transcript' | 'ge
     return 'The generation service is unavailable. Check that the backend is running and try again.';
   }
   return phase === 'transcript'
-    ? 'We could not fetch this transcript. Use a public video with captions that is up to 5 minutes long.'
+    ? 'We could not fetch this transcript. Use a public video with captions that is up to 10 minutes long.'
     : 'We could not create the audio from this transcript. Please try again or choose another voice.';
 }
 

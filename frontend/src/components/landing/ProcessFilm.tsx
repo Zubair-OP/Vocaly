@@ -3,7 +3,7 @@ import { ArrowRight, AudioLines, Check, Link2, Pause, Play } from "lucide-react"
 import { Reveal, SectionHeading, Waveform } from "./LandingPrimitives";
 
 const steps = [
-  { title: "Paste a link", hint: "Captioned YouTube videos. Up to 5 minutes.", label: "THE SOURCE" },
+  { title: "Paste a link", hint: "Captioned YouTube videos. Up to 10 minutes.", label: "THE SOURCE" },
   { title: "Choose a voice", hint: "10 languages. Your choice of voice and tone.", label: "THE TRANSFORMATION" },
   { title: "Take it further", hint: "Generate, listen, and download your MP3.", label: "THE NEW POSSIBILITY" },
 ];

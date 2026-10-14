@@ -63,8 +63,8 @@ class SpeechTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(transcript, "YouTubeTranscriptApi", return_value=api):
             self.assertEqual(transcript.fetch_transcript("abcdefghijk")["source_language"], "fr")
 
-    def test_five_minute_caption_limit(self):
-        for end, allowed in [(120, True), (299, True), (300, True), (301, False)]:
+    def test_ten_minute_caption_limit(self):
+        for end, allowed in [(120, True), (599, True), (600, True), (601, False)]:
             with self.subTest(end=end):
                 api = SimpleNamespace(fetch=lambda *args, **kwargs: [SimpleNamespace(text="Hello", start=0, duration=end)])
                 with patch.object(transcript, "YouTubeTranscriptApi", return_value=api):

@@ -84,7 +84,7 @@ see [demo safeguards](backend/DEMO_SAFEGUARDS.md).
 
 ## Demo Videos (Tested)
 
-Use public videos with accessible captions, up to 5 minutes long:
+Use public videos with accessible captions, up to 10 minutes long:
 
 - Any YouTube video with available captions
 - Educational content with clear speech works best

@@ -141,6 +141,95 @@ async def generate_speech(
         )
 
 
+def _groq_voice_for_edge_voice(voice: str, language: str) -> str:
+    """Map the selected app voice to a supported Groq Orpheus persona."""
+    male_markers = ("guy", "ryan", "asad", "madhur", "hamed")
+    is_male = any(marker in voice.lower() for marker in male_markers)
+    if not is_male:
+        for option in get_voices_for_language(language):
+            if option["id"] == voice and "male" in option["name"].lower():
+                is_male = True
+                break
+    if not is_male:
+        for option in (_catalogue or {}).get(language, []):
+            if option["id"] == voice and "male" in option["name"].lower():
+                is_male = True
+                break
+    if language == "ar":
+        return "fahad" if is_male else "noura"
+    return "troy" if is_male else "hannah"
+
+
+async def generate_preview_speech(
+    text: str,
+    voice: str,
+    target_language: str,
+    output_dir: str,
+    narration_style: str = "normal",
+) -> dict:
+    """Generate English and Saudi Arabic previews with Groq Orpheus TTS."""
+    api_key = os.getenv("GROQ_API_KEY", "").strip()
+    if not api_key or api_key.startswith("your_"):
+        return {
+            "error": "The voice preview service is not configured.",
+            "error_code": "preview_provider_not_configured",
+        }
+
+    # Groq's current Orpheus TTS models support English and Saudi Arabic only.
+    # Return a generic unavailable result for other landing-page languages.
+    model_by_language = {
+        "en": "canopylabs/orpheus-v1-english",
+        "ar": "canopylabs/orpheus-arabic-saudi",
+    }
+    model = model_by_language.get(target_language)
+    directions = {"motivational": "[excited] ", "calm": "[softly] "}
+    input_text = f"{directions.get(narration_style, '')}{text}" if target_language == "en" else text
+    if model is None or len(input_text) > 200:
+        return {"error": "Voice preview is currently unavailable.", "error_code": "preview_provider_unavailable"}
+
+    job_id = uuid.uuid4().hex
+    filename = f"vocally_preview_{target_language}_{job_id}.wav"
+    os.makedirs(output_dir, exist_ok=True)
+    filepath = os.path.join(output_dir, filename)
+    groq_voice = _groq_voice_for_edge_voice(voice, target_language)
+
+    try:
+        async with httpx.AsyncClient(timeout=90) as client:
+            response = await client.post(
+                "https://api.groq.com/openai/v1/audio/speech",
+                headers={"Authorization": f"Bearer {api_key}"},
+                json={
+                    "model": model,
+                    "input": input_text,
+                    "voice": groq_voice,
+                    "response_format": "wav",
+                },
+            )
+
+        if response.status_code == 429:
+            print("[TTS preview] Groq provider rate limit reached (HTTP 429).")
+            return {"error": "Voice preview is currently unavailable.", "error_code": "preview_provider_unavailable"}
+        response.raise_for_status()
+        audio_bytes = response.content
+        if len(audio_bytes) < 128 or audio_bytes.lstrip().startswith((b"{", b"[")):
+            raise ValueError("Groq returned an invalid audio payload")
+        with open(filepath, "wb") as audio_file:
+            audio_file.write(audio_bytes)
+        return {
+            "audio_filename": filename,
+            "job_id": job_id,
+            "provider": "groq",
+            "voice": groq_voice,
+        }
+    except httpx.HTTPStatusError as exc:
+        print(f"[TTS preview] Groq provider failed (HTTP {exc.response.status_code}).")
+    except Exception as exc:
+        print(f"[TTS preview] Groq provider failed ({type(exc).__name__}).")
+    if os.path.exists(filepath):
+        os.remove(filepath)
+    return {"error": "Voice preview is currently unavailable.", "error_code": "preview_provider_unavailable"}
+
+
 def _gemini_voice_for_edge_voice(voice: str, language: str) -> str:
     """Choose a Gemini voice with a similar gender to the selected Edge voice."""
     male_markers = ("guy", "ryan", "asad", "madhur", "hamed")

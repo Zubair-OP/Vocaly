@@ -13,7 +13,7 @@ from youtube_transcript_api._errors import (
     VideoUnplayable, AgeRestricted,
 )
 
-MAX_VIDEO_SECONDS = 300
+MAX_VIDEO_SECONDS = 10 * 60
 
 
 def transcript_error(error: Exception) -> dict:
@@ -136,7 +136,7 @@ def fetch_transcript(video_id: str, preferred_lang: str = "en") -> dict:
         if total_duration > MAX_VIDEO_SECONDS:
             return {
                 "error_code": "video_too_long",
-                "error": "Use a video up to 5 minutes long. This video's captions extend beyond the 5-minute limit."
+                "error": "Use a video up to 10 minutes long. This video's captions extend beyond the 10-minute limit."
             }
 
         return {

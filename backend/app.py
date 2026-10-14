@@ -26,7 +26,7 @@ import db
 from limits import DemoLimits
 from services.transcript import validate_youtube_url, fetch_transcript, fetch_video_title
 from services.translate import translate_text, summarize_text
-from services.tts import generate_speech, voice_catalogue, validate_voice
+from services.tts import generate_speech, generate_preview_speech, voice_catalogue, validate_voice
 from services.languages import LANGUAGE_NAMES, PREVIEW_TEXT
 from services import outputs as output_service, cloudinary_storage
 
@@ -151,13 +151,19 @@ async def get_voices():
 
 @app.post("/api/voice-preview")
 async def api_voice_preview(req: VoicePreviewRequest):
-    _require_cloudinary()
+    if not cloudinary_storage.is_configured():
+        raise HTTPException(status_code=503, detail={"code": "voice_preview_unavailable", "message": "Voice preview is currently unavailable. Please try again later."})
     if not await validate_voice(req.target_language, req.voice):
         raise HTTPException(400, "Choose a voice available in the selected language.")
-    result = await generate_speech(PREVIEW_TEXT[req.target_language], req.voice, "preview", req.target_language, OUTPUT_DIR, req.narration_style)
+    result = await generate_preview_speech(
+        PREVIEW_TEXT[req.target_language], req.voice, req.target_language, OUTPUT_DIR, req.narration_style
+    )
     if "error" in result:
-        raise HTTPException(502, detail={"code": result.get("error_code", "speech_generation_failed"), "message": result["error"]})
-    await _upload_generated_audio(result["audio_filename"])
+        raise HTTPException(503, detail={"code": "voice_preview_unavailable", "message": "Voice preview is currently unavailable. Please try again later."})
+    try:
+        await _upload_generated_audio(result["audio_filename"])
+    except HTTPException as exc:
+        raise HTTPException(status_code=503, detail={"code": "voice_preview_unavailable", "message": "Voice preview is currently unavailable. Please try again later."}) from exc
     return {"audio_url": f'/api/audio/{result["audio_filename"]}', "voice": result.get("voice", req.voice)}
 
 
