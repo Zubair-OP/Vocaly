@@ -26,7 +26,7 @@ import db
 from limits import DemoLimits
 from services.transcript import validate_youtube_url, fetch_transcript, fetch_video_title
 from services.translate import translate_text, summarize_text
-from services.tts import generate_speech, generate_preview_speech, voice_catalogue, validate_voice
+from services.tts import generate_speech, voice_catalogue, validate_voice
 from services.languages import LANGUAGE_NAMES, PREVIEW_TEXT
 from services import outputs as output_service, cloudinary_storage
 
@@ -155,8 +155,13 @@ async def api_voice_preview(req: VoicePreviewRequest):
         raise HTTPException(status_code=503, detail={"code": "voice_preview_unavailable", "message": "Voice preview is currently unavailable. Please try again later."})
     if not await validate_voice(req.target_language, req.voice):
         raise HTTPException(400, "Choose a voice available in the selected language.")
-    result = await generate_preview_speech(
-        PREVIEW_TEXT[req.target_language], req.voice, req.target_language, OUTPUT_DIR, req.narration_style
+    result = await generate_speech(
+        text=PREVIEW_TEXT[req.target_language],
+        voice=req.voice,
+        video_id="preview",
+        target_language=req.target_language,
+        output_dir=OUTPUT_DIR,
+        narration_style=req.narration_style,
     )
     if "error" in result:
         raise HTTPException(503, detail={"code": "voice_preview_unavailable", "message": "Voice preview is currently unavailable. Please try again later."})
