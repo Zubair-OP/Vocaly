@@ -2,7 +2,27 @@
  * API client for Vocally backend.
  */
 
-const API_BASE = '/api';
+const API_ORIGIN = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/+$/, '');
+const API_BASE = `${API_ORIGIN}/api`;
+
+/** Resolve backend-returned paths (notably audio URLs) for split deployments. */
+function resolveBackendUrl(path: string): string {
+  if (!path || /^https?:\/\//i.test(path) || !API_ORIGIN) return path;
+  return `${API_ORIGIN}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
+function toBackendPath(url: string): string {
+  if (API_ORIGIN && url.startsWith(`${API_ORIGIN}/`)) return url.slice(API_ORIGIN.length);
+  return url;
+}
+
+function normalizeOutput(output: OutputItem): OutputItem {
+  return {
+    ...output,
+    audioUrl: resolveBackendUrl(output.audioUrl),
+    summaryAudioUrl: resolveBackendUrl(output.summaryAudioUrl ?? ''),
+  };
+}
 
 export interface TranscriptSegment {
   text: string;
@@ -40,10 +60,11 @@ export interface VoicesResponse {
 export type NarrationStyle = 'normal' | 'motivational' | 'calm';
 
 export async function previewVoice(target_language: string, voice: string, narration_style: NarrationStyle): Promise<{ audio_url: string }> {
-  return handleResponse(await fetch(`${API_BASE}/voice-preview`, {
+  const result = await handleResponse<{ audio_url: string }>(await fetch(`${API_BASE}/voice-preview`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ target_language, voice, narration_style }),
   }));
+  return { ...result, audio_url: resolveBackendUrl(result.audio_url) };
 }
 
 // Output persisted by the backend in MongoDB
@@ -142,7 +163,13 @@ export async function generateAudio(params: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
   });
-  return handleResponse<GenerateResponse>(response);
+  const result = await handleResponse<GenerateResponse>(response);
+  return {
+    ...result,
+    audio_url: resolveBackendUrl(result.audio_url),
+    summary_audio_url: resolveBackendUrl(result.summary_audio_url),
+    output: normalizeOutput(result.output),
+  };
 }
 
 export async function fetchVoices(): Promise<VoicesResponse> {
@@ -160,12 +187,12 @@ export async function checkHealth(): Promise<{ status: string }> {
 export async function fetchOutputs(limit = 100): Promise<OutputItem[]> {
   const response = await fetch(`${API_BASE}/outputs?limit=${limit}`);
   const data = await handleResponse<{ outputs: OutputItem[] }>(response);
-  return data.outputs;
+  return data.outputs.map(normalizeOutput);
 }
 
 export async function fetchOutput(id: string): Promise<OutputItem> {
   const response = await fetch(`${API_BASE}/outputs/${encodeURIComponent(id)}`);
-  return handleResponse<OutputItem>(response);
+  return normalizeOutput(await handleResponse<OutputItem>(response));
 }
 
 export async function saveOutput(output: OutputItem): Promise<OutputItem> {
@@ -182,13 +209,13 @@ export async function saveOutput(output: OutputItem): Promise<OutputItem> {
       original_transcript: output.originalTranscript,
       translated_text: output.translatedText,
       summary_text: output.summaryText ?? '',
-      summary_audio_url: output.summaryAudioUrl ?? '',
-      audio_url: output.audioUrl,
+      summary_audio_url: toBackendPath(output.summaryAudioUrl ?? ''),
+      audio_url: toBackendPath(output.audioUrl),
       status: output.status,
       created_at: output.createdAt,
     }),
   });
-  return handleResponse<OutputItem>(response);
+  return normalizeOutput(await handleResponse<OutputItem>(response));
 }
 
 export async function deleteOutput(id: string): Promise<void> {
