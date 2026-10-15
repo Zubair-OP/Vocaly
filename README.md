@@ -39,6 +39,12 @@ python app.py
 
 The backend runs on **http://localhost:8000**.
 
+For production deployments where YouTube blocks the host's outbound IP, set
+`YOUTUBE_TRANSCRIPT_PROXY_URL` in the backend environment to a proxy URL
+supported by `youtube-transcript-api`. Leave it unset for local development.
+Store proxy credentials only in the hosting provider's secret environment
+settings, not in frontend variables or committed files.
+
 ### 2. Frontend Setup
 
 ```bash

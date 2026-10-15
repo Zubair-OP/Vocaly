@@ -4,10 +4,12 @@ Handles YouTube URL validation, video ID extraction, and transcript retrieval.
 """
 
 import re
+import os
 from urllib.parse import parse_qs, urlsplit
 # pyrefly: ignore [missing-import]
 import httpx
 from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api.proxies import GenericProxyConfig
 from youtube_transcript_api._errors import (
     NoTranscriptFound, TranscriptsDisabled, RequestBlocked, VideoUnavailable,
     VideoUnplayable, AgeRestricted,
@@ -16,11 +18,24 @@ from youtube_transcript_api._errors import (
 MAX_VIDEO_SECONDS = 10 * 60
 
 
+def _transcript_api() -> YouTubeTranscriptApi:
+    """Use a configured outbound proxy when the deployment needs one."""
+    proxy_url = os.getenv("YOUTUBE_TRANSCRIPT_PROXY_URL", "").strip()
+    if not proxy_url:
+        return YouTubeTranscriptApi()
+
+    proxy_config = GenericProxyConfig(http_url=proxy_url, https_url=proxy_url)
+    return YouTubeTranscriptApi(proxy_config=proxy_config)
+
+
 def transcript_error(error: Exception) -> dict:
     if isinstance(error, (TranscriptsDisabled, NoTranscriptFound)):
         return {"error_code": "captions_unavailable", "error": "This video has no accessible captions. Choose a video with captions enabled; videos without captions require audio transcription."}
     if isinstance(error, RequestBlocked):
-        return {"error_code": "youtube_blocked", "error": "YouTube blocked the caption request from this connection. Try again later or use another connection."}
+        return {
+            "error_code": "youtube_blocked",
+            "error": "YouTube blocked transcript requests from this server's network. Configure YOUTUBE_TRANSCRIPT_PROXY_URL in the backend environment, then try again.",
+        }
     if isinstance(error, (VideoUnavailable, VideoUnplayable, AgeRestricted)):
         return {"error_code": "video_unavailable", "error": "This video is unavailable or restricted. Choose a public, unrestricted video with captions."}
     return {"error_code": "transcript_service_unavailable", "error": "Could not connect to the YouTube caption service. Check the backend internet connection and try again."}
@@ -91,7 +106,7 @@ def fetch_transcript(video_id: str, preferred_lang: str = "en") -> dict:
     Uses the latest youtube-transcript-api API.
     """
     try:
-        ytt_api = YouTubeTranscriptApi()
+        ytt_api = _transcript_api()
 
         # Try to fetch transcript — first try preferred language, then fallback
         transcript = None
